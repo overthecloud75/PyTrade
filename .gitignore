@@ -1,0 +1,6 @@
+.idea
+.vscode
+config/__pycache__/
+kiwoom/__pycache__/
+files/
+log/
