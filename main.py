@@ -1,4 +1,4 @@
-from kiwoom.kiwoom import *
+from strategy import Strategy
 import sys
 from PyQt5.QtWidgets import *
 import logging
@@ -12,7 +12,7 @@ class Main():
         self.logger.info('Main start')
 
         self.app = QApplication(sys.argv)
-        self.kiwoom = Kiwoom()
+        self.kiwoom = Strategy()
         self.app.exec_()
 
     def set_logger(self):  # 로그 환경을 설정해주는 함수
