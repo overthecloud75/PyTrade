@@ -1,9 +1,39 @@
+from werkzeug.security import check_password_hash
 import datetime
 from pymongo import MongoClient
 
 mongoClient = MongoClient('mongodb://localhost:27017/')
 db = mongoClient['pytrade']
 
+# users
+def post_sign_up(request_data):
+    collection = db['users']
+    user_data = collection.find_one(filter={'email': request_data['email']})
+    error = None
+    if user_data:
+        error = '이미 존재하는 사용자입니다.'
+    else:
+        user_data = collection.find_one(sort=[('create_time', -1)])
+        if user_data:
+            user_id = user_data['user_id'] + 1
+        else:
+            user_id = 1
+        request_data['create_time'] = str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        request_data['user_id'] = user_id
+        collection.insert(request_data)
+    return error
+
+def post_login(request_data):
+    collection = db['users']
+    error = None
+    user_data = collection.find_one(filter={'email': request_data['email']})
+    if not user_data:
+        error = "존재하지 않는 사용자입니다."
+    elif not check_password_hash(user_data['password'], request_data['password']):
+        error = "비밀번호가 올바르지 않습니다."
+    return error, user_data
+
+# account
 def get_account_list():
     collection = db['account']
     data = collection.find_one({'account_list':{'$exists': 'true'}})
@@ -68,7 +98,6 @@ def get_chart(code):
     if date == lastDate:
         isNext = False
     return isNext, lastDate, chart
-
 
 def update_chart(code, chart):
     collection = db['chart']

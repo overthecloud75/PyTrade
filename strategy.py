@@ -3,7 +3,7 @@ from kiwoom.kiwoom import *
 from PyQt5.QtCore import *
 import logging
 import models
-from datetime import datetime
+import pandas as pd
 
 class Strategy():
     def __init__(self):
@@ -88,69 +88,70 @@ class Strategy():
                 models.update_chart(code, recentChart)
                 chart = recentChart + chart
             print('chart', len(chart))
-            self.tatics(code=code, chart=chart)
+            # self.tatics(code=code, chart=chart)
 
-    def tatics(self, code=None, chart=None, movingPeriod=120, targetPeriod=3):   # moving 이동 평균선, target 관심 영역의 기간
-        # chart : date, o, h, l, c, v, t
-        # 6 -> 3, 5 -> 2, 0 -> 4
-        pass_success = False
-        if chart is None or len(chart) < movingPeriod:
-            pass_success = False
+    def tatics(self, code=None, chart=None, period=120, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
+        # 그랜빌의 매매법칙중 4번째 매수 법칙
+        is_ok = False
+        if chart is None or len(chart) < period:
+            is_ok = False
         else:
             total_price = 0
-            for value in chart[:movingPeriod]:
+            for value in chart[:period]:
                 total_price = total_price + value['close']
-            moving_average_price = total_price / movingPeriod
+            average_price = total_price / period
 
+            # 오늘자 주가가 120일 이평선에 걸쳐 있는지 확인
             bottom_stock_price = False
-            current_high_price = None
-            if chart[0]['low'] <= moving_average_price and moving_average_price <= chart[0]['high']: #low_price, high_price
+            high_price = None
+            if chart[0]['low'] <= average_price and average_price <= chart[0]['high']:
                 bottom_stock_price = True
-                current_high_price = chart[0]['high']
+                high_price = chart[0]['high']
 
+            # 과거 일봉 데이터를 조회하면서 이동평균선보다 주가가 계속 밑에 존재하는지 확인
             prev_low_price = None
             if bottom_stock_price:
-                moving_average_price_prev = 0
+                prev_average_price = 0
                 price_top_moving = False
                 idx = 1
 
                 while True:
-                    if len(chart[idx:]) < movingPeriod:
-                        self.logger.info('there is no data for the period: %s' %movingPeriod)
+                    if len(chart[idx:]) < period:
+                        self.logger.info('there is no data for the period: %s' % period)
                         break
 
-                    for value in chart[idx:movingPeriod + idx]:
+                    for value in chart[idx:period + idx]:
                         total_price = total_price + value['close']
-                    moving_average_price_prev = total_price / movingPeriod
+                    prev_average_price = total_price / period
 
-                    if moving_average_price_prev <= int(chart[idx]['high']) and idx <= targetPeriod: # high price가 mvoing average 보다 높은 경우 fail
+                    # target_period 동안 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
+                    if prev_average_price <= chart[idx]['high'] and idx <= targetPeriod:
                         price_top_moving = False
                         break
-                    elif (moving_average_price_prev < chart[idx]['low']) and idx > targetPeriod: # low price가 moving average 보다 높은 경구가 20일 전인 경우
-                        self.logger.info('%s일치 이평선 위에 있는 구간 확인됨' %(movingPeriod))
+                    # target_periode 전에 이평선 위에 있는 구간 존재
+                    elif prev_average_price < chart[idx]['low'] and idx > targetPeriod:
+                        self.logger.info('%s일치 이평선 위에 있는 구간 확인됨' %period)
                         price_top_moving = True
                         prev_low_price = chart[idx]['low']
-
+                        break
                     idx = idx + 1
 
                 if price_top_moving:
-                    if moving_average_price > moving_average_price_prev and current_high_price > prev_low_price:
-                        self.logger.info('이전 이평선 가격이 오늘자 이평선 가격보다 낮은 것 확인')
-                        self.logger.info('이전 일봉 저가가 오늘자 일봉 고가보다 낮은지 확인')
-                        pass_success = True
-
-        if pass_success:
+                    if average_price > prev_average_price and high_price > prev_low_price:
+                        is_ok = True
+        if is_ok:
             self.logger.info('조건 통과')
             codeName = self.kiwoom.get_codeName(code)
             with open(self.condition_stock_path, 'a', encoding='utf-8') as f:
                 f.write('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
                 self.logger.info('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
-        else:
-            self.logger.info('조건 통과 못함')
-            codeName = self.kiwoom.get_codeName(code)
-            with open(self.condition_stock_path, 'a', encoding='utf-8') as f:
-                f.write('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
-                self.logger.info('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
+
+    def toDataFrame(self, chart):
+        dates = []
+        for data in chart:
+            dates.append(data['date'])
+        df = pd.DataFrame(chart, index=dates, columns=['open', 'high', 'low', 'close', 'volume', 'trading'])
+        return df
 
     def read_code(self):
         if os.path.exists(self.condition_stock_path):

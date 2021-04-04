@@ -1,0 +1,19 @@
+<div class="row justify-content-between my-3">  <!-- 양쪽정렬 justify-content-between로 변경 -->
+    <div class="col-4 input-group" style="max-width:500px;">
+        <input type="text" class="form-control kw" value="{{ keyword or '' }}">
+        <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" id="btn_search">찾기</button>
+        </div>
+    </div>
+</div>
+<form id="searchForm" method="get">
+    <input type="hidden" id="kw" name="kw" value="{{ keyword or '' }}">
+</form>
+<script type='text/javascript'>
+$(document).ready(function(){
+    $("#btn_search").on('click', function() {
+        $("#kw").val($(".kw").val());
+        $("#searchForm").submit();
+    });
+});
+</script>
