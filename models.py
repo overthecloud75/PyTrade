@@ -1,5 +1,8 @@
+import copy
 from werkzeug.security import check_password_hash
 import datetime
+from views.config import page_default
+from utils import paginate
 from pymongo import MongoClient
 
 mongoClient = MongoClient('mongodb://localhost:27017/')
@@ -36,7 +39,7 @@ def post_login(request_data):
 # account
 def get_account_list():
     collection = db['account']
-    data = collection.find_one({'account_list':{'$exists': 'true'}})
+    data = collection.find_one({'account_list':{'$exists':'true'}})
     if data:
         return data['account_list']
     else:
@@ -47,11 +50,19 @@ def update_account_list(account_list):
     update = {'account_list':account_list}
     collection.update_one({'account_list': {'$exists':'true'}}, {'$set':update}, upsert=True)
 
-def get_account_info(account):
+def get_account_info(account, page=1, is_paging=False):
     collection = db['account']
     date = datetime.datetime.today().strftime("%Y%m%d")
-    account_info = collection.find_one({'date':date, 'account':account})
-    return account_info
+    if is_paging:
+        per_page = page_default['per_page']
+        offset = (page - 1) * per_page
+        data_list = collection.find({'date':date, 'account':account}).limit(per_page).skip(offset)
+        count = data_list.count()
+        paging = paginate(page, per_page, count)
+        return paging, data_list
+    else:
+        account_info = collection.find_one({'date':date, 'account':account})
+        return account_info
 
 def update_account_info(update):
     collection = db['account']
@@ -64,19 +75,32 @@ def update_profit(account, profit):
     date = datetime.datetime.today().strftime("%Y%m%d")
     update = profit
     update['date'] = date
-    update['account'] = account
+    update['user'] = account
     collection.update_one({'date':date, 'account':account}, {'$set':update}, upsert=True)
+
+def get_myStock(account, code=None, page=1, is_paging=False):
+    collection = db['stock']
+    if is_paging:
+        per_page = page_default['per_page']
+        offset = (page - 1) * per_page
+        data_list = collection.find({'account':account}, sort=[('date', -1)]).limit(per_page).skip(offset)
+        count = data_list.count()
+        paging = paginate(page, per_page, count)
+        return paging, data_list
+    else:
+        data_list = collection.find({'account': account})
+        return data_list
 
 def update_myStock(account, code, myStock):
     collection = db['stock']
     date = datetime.datetime.today().strftime("%Y%m%d")
     update = myStock
     update['date'] = date
-    update['account'] = account
+    update['user'] = account
     update['code'] = code
     collection.update_one({'date':date, 'account':account, 'code':code}, {'$set':update}, upsert=True)
 
-def get_chart(code):
+def get_chart(code, isJson=False):
     collection = db['chart']
     isNext = True
     today = datetime.date.today()
@@ -91,17 +115,27 @@ def get_chart(code):
     lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
     if lastChart is not None:
         lastDate = lastChart['date']
-        chartData = collection.find({'code':code}, sort=[('date', -1)])
-        for data in chartData:
-            del data['_id']
-            chart.append(data)
+        chartData = collection.find({'code': code}, sort=[('date', -1)]).limit(120)
+        if isJson:
+            for data in chartData:
+                del data['_id']
+                #date = data['date'][0:4] + '-' + data['date'][4:6] + '-' + data['date'][6:8]
+                #copyData = copy.deepcopy(data)
+                #copyData['date'] = date
+                #chart.append(copyData)
+                chart.append(data)
+            chart.reverse()
+            return chart
+        else:
+            for data in chartData:
+                del data['_id']
+                chart.append(data)
     if date == lastDate:
         isNext = False
     return isNext, lastDate, chart
 
 def update_chart(code, chart):
     collection = db['chart']
-    date = datetime.datetime.today().strftime("%Y%m%d")
     for data in chart:
         update = data
         update['code'] = code

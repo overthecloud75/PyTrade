@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container my-3">
+    <table class="table">
+    {% if data_list %}
+        <thead>
+        <tr class="thead-dark">
+            <th>번호</th>
+            <th>date</th>
+            <th>account</th>
+            <th>예수금</th>
+            <th>출금가능금액</th>
+        </tr>
+        {% for data in data_list %}
+        <tr>
+            <td>{{ paging.count - paging.offset - loop.index0 }}</td>
+            <td>{{ data['date'] }}</td>
+            <td>{{ data['account'] }}</td>
+            <td>{{ data['예수금'] }}</td>
+            <td>{{ data['출금가능금액'] }}</td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr>
+            <td colspan="3">account 정보가 없습니다.</td>
+        </tr>
+    {% endif %}
+    </table>
+</div>
+{% include 'paging.html' %}
+{% endblock %}

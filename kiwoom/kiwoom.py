@@ -257,7 +257,7 @@ class Kiwoom(QAxWidget):
         self.block = False
         while not self.block:
             pythoncom.PumpWaitingMessages()
-        return {'account':account_num, '예수금':self.deposit, '출금가능금액':self.output_deposit}
+        return {'user':account_num, '예수금':self.deposit, '출금가능금액':self.output_deposit}
 
     def get_myStock(self, account_num, isNext='0'):
         sRQName = '계좌평가잔고내역요청'

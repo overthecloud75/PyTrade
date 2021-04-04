@@ -51,7 +51,7 @@ class Strategy():
     def get_account_list(self):
         account_list = models.get_account_list()
         if account_list is None:
-            account_list = self.kiwoom.get_account_list()  # account No 확인
+            account_list = self.kiwoom.get_account_list()  # user No 확인
             models.update_account_list(account_list)
         self.logger.info('account_list: %s' % str(account_list))
         return account_list

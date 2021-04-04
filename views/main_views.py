@@ -1,12 +1,13 @@
-from flask import Blueprint, request, render_template, url_for, current_app, session, g, flash, send_file, send_from_directory
+from flask import Blueprint, request, render_template, url_for, current_app, session, g, flash, jsonify
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import redirect
+import json
 
 from datetime import datetime
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_sign_up, post_login, get_chart
+from models import post_sign_up, post_login, get_chart, get_account_list, get_account_info, get_myStock
 
 # blueprint
 bp = Blueprint('main', __name__, url_prefix='/')
@@ -33,7 +34,7 @@ def signup():
             flash('이미 존재하는 사용자입니다.')
         else:
             return redirect(url_for('main.index'))
-    return render_template('account/signup.html', form=form)
+    return render_template('user/signup.html', form=form)
 
 @bp.route('/login/', methods=('GET', 'POST'))
 def login():
@@ -50,7 +51,25 @@ def login():
                 session[key] = user_data[key]
             return redirect(url_for('main.index'))
         flash(error)
-    return render_template('account/login.html', form=form)
+    return render_template('user/login.html', form=form)
+
+@bp.route('/account/')
+@login_required
+def account():
+    page = request.args.get('page', type=int, default=1)
+    account_list = get_account_list()
+    account_num = account_list[0]
+    paging, data_list = get_account_info(account_num, page=page, is_paging=True)
+    return render_template('stock/account.html', **locals())
+
+@bp.route('/mystock/')
+@login_required
+def mystock():
+    page = request.args.get('page', type=int, default=1)
+    account_list = get_account_list()
+    account_num = account_list[0]
+    paging, data_list = get_myStock(account_num, page=page, is_paging=True)
+    return render_template('stock/mystock.html', **locals())
 
 @bp.route('/logout/')
 @login_required
@@ -60,8 +79,10 @@ def logout():
 
 @bp.route('/chart/')
 def chart():
-    code_name = '동진세미캠'
-    chart = get_chart('005290')
+    codeName = request.args.get('kw', default='삼성전자')
+    #chart = get_chart('005290', isJson=True)
+    #chart = json.dumps(chart)
+    data_list = get_chart('005290', isJson=True)
     return render_template('chart.html', **locals())
 
 @bp.before_app_request
