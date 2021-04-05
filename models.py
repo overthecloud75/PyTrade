@@ -78,6 +78,23 @@ def update_profit(account, profit):
     update['user'] = account
     collection.update_one({'date':date, 'account':account}, {'$set':update}, upsert=True)
 
+# code
+def get_code(codeName):
+    collection = db['code']
+    data = collection.find_one({'codeName':codeName})
+    if data is None:
+        return data
+    else:
+        return data['code']
+
+def update_code(update):
+    collection = db['code']
+    if 'codeName' in update and 'code' in update:
+        collection.update_one({'codeName':update['codeName']}, {'$set':update}, upsert=True)
+    else:
+        pass
+
+# mystock
 def get_myStock(account, code=None, page=1, is_paging=False):
     collection = db['stock']
     if is_paging:
@@ -110,29 +127,26 @@ def get_chart(code, isJson=False):
     elif today.weekday() == 6:
         today = today - datetime.timedelta(days=2)
     date = today.strftime("%Y%m%d")
-    lastDate = None
     chart = []
-    lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
-    if lastChart is not None:
-        lastDate = lastChart['date']
-        chartData = collection.find({'code': code}, sort=[('date', -1)]).limit(120)
-        if isJson:
-            for data in chartData:
-                del data['_id']
-                #date = data['date'][0:4] + '-' + data['date'][4:6] + '-' + data['date'][6:8]
-                #copyData = copy.deepcopy(data)
-                #copyData['date'] = date
-                #chart.append(copyData)
-                chart.append(data)
-            chart.reverse()
-            return chart
-        else:
+    if isJson:
+        chartData = collection.find({'code':code}, sort=[('date', -1)]).limit(360)
+        for data in chartData:
+            del data['_id']
+            chart.append(data)
+        chart.reverse()
+        return chart
+    else:
+        lastDate = None
+        lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
+        if lastChart is not None:
+            lastDate = lastChart['date']
+            chartData = collection.find({'code':code}, sort=[('date', -1)]).limit(360)
             for data in chartData:
                 del data['_id']
                 chart.append(data)
-    if date == lastDate:
-        isNext = False
-    return isNext, lastDate, chart
+            if date == lastDate:
+                isNext = False
+        return isNext, lastDate, chart
 
 def update_chart(code, chart):
     collection = db['chart']
@@ -140,6 +154,7 @@ def update_chart(code, chart):
         update = data
         update['code'] = code
         collection.update_one({'code':code, 'date':data['date']}, {'$set':update}, upsert=True)
+
 
 
 

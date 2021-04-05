@@ -7,7 +7,7 @@ from datetime import datetime
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_sign_up, post_login, get_chart, get_account_list, get_account_info, get_myStock
+from models import post_sign_up, post_login, get_code, get_account_list, get_account_info, get_myStock, get_chart
 
 # blueprint
 bp = Blueprint('main', __name__, url_prefix='/')
@@ -80,9 +80,13 @@ def logout():
 @bp.route('/chart/')
 def chart():
     codeName = request.args.get('kw', default='삼성전자')
-    #chart = get_chart('005290', isJson=True)
-    #chart = json.dumps(chart)
-    data_list = get_chart('005290', isJson=True)
+    code = get_code(codeName)
+    if code:
+        codeName = codeName + ' (' + code + ')'
+        data_list = get_chart(code, isJson=True)
+    else:
+        codeName = '동진세미켐 (005290)'
+        data_list = get_chart('005290', isJson=True)
     return render_template('chart.html', **locals())
 
 @bp.before_app_request

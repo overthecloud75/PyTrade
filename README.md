@@ -1,6 +1,7 @@
 # PyTrade
 ### 1. Result
 ### 2. Usage
+py -3.8 stockcode (for updating codeNamd and code in DB) <br>
 py -3.7 stock.py (for kiwoom trading) <br>
 py -3.8 main.py (for flask server)
 ### 3. Acknowlegements

@@ -1,3 +1,5 @@
+import datetime
+
 def paginate(page, per_page, count):
     offset = (page - 1) * per_page
     total_pages = int(count / per_page) + 1
@@ -43,3 +45,16 @@ def paginate(page, per_page, count):
               'total_pages':total_pages
               }
     return paging
+
+def checkStockFinished():
+    isStockFinished = False
+    today = datetime.date.today()
+    if today.weekday() == 5 or today.weekday() == 6:
+        isStockFinished = True
+    else:
+        now = datetime.datetime.now()
+        if now.hour < 8 or now.hour > 17:
+            isStockFinished = True
+    return isStockFinished
+
+

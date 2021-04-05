@@ -1,9 +1,9 @@
 import os
 from kiwoom.kiwoom import *
-from PyQt5.QtCore import *
 import logging
 import models
 import pandas as pd
+from utils import checkStockFinished
 
 class Strategy():
     def __init__(self):
@@ -33,7 +33,8 @@ class Strategy():
         self.get_my_stock(account_num)
         self.get_not_signed_stock(account_num)
 
-        self.calculator_fnc()
+        self.gathering_daily_chart()
+        self.checkTatics()
 
         QTest.qWait(10000)
         self.read_code()
@@ -57,7 +58,10 @@ class Strategy():
         return account_list
 
     def get_account_info(self, account_num):
-        self.account_info = models.get_account_info(account_num)
+        isStockFinished = checkStockFinished()
+        self.account_info = None
+        if isStockFinished:
+            self.account_info = models.get_account_info(account_num)
         if self.account_info is None:
             self.account_info = self.kiwoom.account_info(account_num)  # 예수금 상세현황 요청
             models.update_account_info(self.account_info)
@@ -75,11 +79,15 @@ class Strategy():
         self.not_signed_stock = self.kiwoom.get_not_signed_stock(account_num)
         self.logger.info('not_signed_stock : %s' % str(self.not_signed_stock))
 
-    def calculator_fnc(self):
-        market_name = '코스닥'
+    def gathering_daily_chart(self):
+        self.logger.info('gathering daily chart')
+        market_name = '코스피'
         code_list = self.kiwoom.get_code_list(market=self.market[market_name])
 
         for idx, code in enumerate(code_list):
+            isStockFinished = checkStockFinished()
+            if not isStockFinished:
+                break
             self.kiwoom.disconnectRealData()
             self.logger.info('%s/%s : %s stock code: %s is updating' %(idx, len(code_list), market_name, code))
             isNext, lastDate, chart = models.get_chart(code)
@@ -89,10 +97,17 @@ class Strategy():
                 chart = recentChart + chart
             print('chart', len(chart))
             # self.tatics(code=code, chart=chart)
+    def checkTatics(self):
+        self.logger.info('check tatics')
+        market_name = '코스닥'
+        code_list = self.kiwoom.get_code_list(market=self.market[market_name])
+        for idx, code in enumerate(code_list):
+            self.tatics(code)
 
-    def tatics(self, code=None, chart=None, period=120, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
+    def tatics(self, code=None, period=120, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
         # 그랜빌의 매매법칙중 4번째 매수 법칙
         is_ok = False
+        _, _, chart = models.get_chart(code)
         if chart is None or len(chart) < period:
             is_ok = False
         else:
@@ -117,7 +132,7 @@ class Strategy():
 
                 while True:
                     if len(chart[idx:]) < period:
-                        self.logger.info('there is no data for the period: %s' % period)
+                        # self.logger.info('there is no data for the period: %s' %period)
                         break
 
                     for value in chart[idx:period + idx]:
