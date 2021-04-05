@@ -50,14 +50,6 @@ class Kiwoom(QAxWidget):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')  # ocx 확장자도 파이썬에서 사용할 수 있게 해 준다.
                                                       # registery에 저장된 API 모듈 불러오기
     def GetCommData(self, trcode, rqname, index, item):
-        """
-        수순 데이터를 가져가는 메서드
-        :param trcode: TR 코드
-        :param rqname: 요청 이름
-        :param index: 멀티데이터의 경우 row index
-        :param item: 얻어오려는 항목 이름
-        :return:
-        """
         data = self.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, index, item)
         return data.strip()
 
@@ -181,7 +173,6 @@ class Kiwoom(QAxWidget):
                 data = {'date':date, 'open':int(open), 'high':int(high), 'low':int(low), 'close':int(close), 'volume':int(volume), 'trading':int(trading)}
                 self.chart.append(data.copy())
 
-            # self.calculator_event_loop.exit()
             if not isLast:
                 if isNext == '2':
                     self.dailyData(code=code, isNext=isNext)
@@ -305,6 +296,7 @@ class Kiwoom(QAxWidget):
         self.dailyData(code=code)
         while not self.block:
             pythoncom.PumpWaitingMessages()
+        self.lastDate = None
         return self.chart
 
     def dailyData(self, code=None, date=None, isNext='0'):

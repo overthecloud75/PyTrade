@@ -46,6 +46,16 @@ def paginate(page, per_page, count):
               }
     return paging
 
+def request_get(request_data):
+    page = int(request_data.get('page', 1))
+    keyword = request_data.get('kw', None)
+    if keyword == '?':
+        keyword = '\?'
+    so = request_data.get('so', '1year')
+    if so not in ['6month', '1year', '3year']:
+        so = '1year'
+    return page, keyword, so
+
 def checkStockFinished():
     isStockFinished = False
     today = datetime.date.today()
@@ -53,7 +63,7 @@ def checkStockFinished():
         isStockFinished = True
     else:
         now = datetime.datetime.now()
-        if now.hour < 8 or now.hour > 17:
+        if now.hour < 8 or now.hour >= 16:
             isStockFinished = True
     return isStockFinished
 

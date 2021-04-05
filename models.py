@@ -52,15 +52,15 @@ def update_account_list(account_list):
 
 def get_account_info(account, page=1, is_paging=False):
     collection = db['account']
-    date = datetime.datetime.today().strftime("%Y%m%d")
     if is_paging:
         per_page = page_default['per_page']
         offset = (page - 1) * per_page
-        data_list = collection.find({'date':date, 'account':account}).limit(per_page).skip(offset)
+        data_list = collection.find({'account':account}, sort=[('date', -1)]).limit(per_page).skip(offset)
         count = data_list.count()
         paging = paginate(page, per_page, count)
         return paging, data_list
     else:
+        date = datetime.datetime.today().strftime("%Y%m%d")
         account_info = collection.find_one({'date':date, 'account':account})
         return account_info
 
@@ -81,7 +81,9 @@ def update_profit(account, profit):
 # code
 def get_code(codeName):
     collection = db['code']
-    data = collection.find_one({'codeName':codeName})
+    data = None
+    if codeName is not None and codeName != '':
+        data = collection.find_one({'codeName':codeName})
     if data is None:
         return data
     else:
@@ -117,30 +119,37 @@ def update_myStock(account, code, myStock):
     update['code'] = code
     collection.update_one({'date':date, 'account':account, 'code':code}, {'$set':update}, upsert=True)
 
-def get_chart(code, isJson=False):
+def get_chart(code, isJson=False, so='1year'):
     collection = db['chart']
     isNext = True
     today = datetime.date.today()
-    # except weekend
-    if today.weekday() == 5:
-        today = today - datetime.timedelta(days=1)
-    elif today.weekday() == 6:
-        today = today - datetime.timedelta(days=2)
-    date = today.strftime("%Y%m%d")
+    if so == '6month':
+        initialDate = today - datetime.timedelta(days=180)
+    elif so == '3year':
+        initialDate = today - datetime.timedelta(days=365 * 3)
+    else:
+        initialDate = today - datetime.timedelta(days=365)
+    initialDate = initialDate.strftime("%Y%m%d")
     chart = []
     if isJson:
-        chartData = collection.find({'code':code}, sort=[('date', -1)]).limit(360)
+        chartData = collection.find({'code':code, 'date':{"$gt":initialDate}}, sort=[('date', 1)])
         for data in chartData:
             del data['_id']
             chart.append(data)
-        chart.reverse()
         return chart
     else:
+        # except weekend
+        if today.weekday() == 5:
+            today = today - datetime.timedelta(days=1)
+        elif today.weekday() == 6:
+            today = today - datetime.timedelta(days=2)
+        date = today.strftime("%Y%m%d")
+
         lastDate = None
         lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
         if lastChart is not None:
             lastDate = lastChart['date']
-            chartData = collection.find({'code':code}, sort=[('date', -1)]).limit(360)
+            chartData = collection.find({'code':code, 'date':{"$gt":initialDate}}, sort=[('date', -1)])
             for data in chartData:
                 del data['_id']
                 chart.append(data)

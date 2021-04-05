@@ -1,13 +1,11 @@
 from flask import Blueprint, request, render_template, url_for, current_app, session, g, flash, jsonify
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import redirect
-import json
-
-from datetime import datetime
 import functools
 
 from form import UserCreateForm, UserLoginForm
 from models import post_sign_up, post_login, get_code, get_account_list, get_account_info, get_myStock, get_chart
+from utils import request_get
 
 # blueprint
 bp = Blueprint('main', __name__, url_prefix='/')
@@ -56,7 +54,7 @@ def login():
 @bp.route('/account/')
 @login_required
 def account():
-    page = request.args.get('page', type=int, default=1)
+    page, keyword, so = request_get(request.args)
     account_list = get_account_list()
     account_num = account_list[0]
     paging, data_list = get_account_info(account_num, page=page, is_paging=True)
@@ -65,7 +63,7 @@ def account():
 @bp.route('/mystock/')
 @login_required
 def mystock():
-    page = request.args.get('page', type=int, default=1)
+    page, keyword, so = request_get(request.args)
     account_list = get_account_list()
     account_num = account_list[0]
     paging, data_list = get_myStock(account_num, page=page, is_paging=True)
@@ -79,14 +77,19 @@ def logout():
 
 @bp.route('/chart/')
 def chart():
-    codeName = request.args.get('kw', default='삼성전자')
-    code = get_code(codeName)
+    page, keyword, so = request_get(request.args)
+    code = get_code(keyword)
     if code:
-        codeName = codeName + ' (' + code + ')'
-        data_list = get_chart(code, isJson=True)
+        codeName = keyword + ' (' + code + ')'
+        data_list = get_chart(code, isJson=True, so=so)
+        if data_list:
+            period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
+        else:
+            period = ''
     else:
         codeName = '동진세미켐 (005290)'
-        data_list = get_chart('005290', isJson=True)
+        data_list = get_chart('005290', isJson=True, so=so)
+        period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
     return render_template('chart.html', **locals())
 
 @bp.before_app_request

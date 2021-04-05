@@ -81,21 +81,20 @@ class Strategy():
 
     def gathering_daily_chart(self):
         self.logger.info('gathering daily chart')
-        market_name = '코스피'
-        code_list = self.kiwoom.get_code_list(market=self.market[market_name])
 
-        for idx, code in enumerate(code_list):
-            isStockFinished = checkStockFinished()
-            if not isStockFinished:
-                break
-            self.kiwoom.disconnectRealData()
-            self.logger.info('%s/%s : %s stock code: %s is updating' %(idx, len(code_list), market_name, code))
-            isNext, lastDate, chart = models.get_chart(code)
-            if isNext:
-                recentChart = self.kiwoom.dailyChart(code=code, lastDate=lastDate)
-                models.update_chart(code, recentChart)
-                chart = recentChart + chart
-            print('chart', len(chart))
+        for market in self.market:
+            code_list = self.kiwoom.get_code_list(market=self.market[market])
+
+            for idx, code in enumerate(code_list):
+                isStockFinished = checkStockFinished()
+                if not isStockFinished:
+                    break
+                self.kiwoom.disconnectRealData()
+                self.logger.info('%s/%s : %s stock code: %s is updating' %(idx, len(code_list), market, code))
+                isNext, lastDate, chart = models.get_chart(code)
+                if isNext:
+                    recentChart = self.kiwoom.dailyChart(code=code, lastDate=lastDate)
+                    models.update_chart(code, recentChart)
             # self.tatics(code=code, chart=chart)
     def checkTatics(self):
         self.logger.info('check tatics')
