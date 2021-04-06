@@ -346,7 +346,7 @@ class Kiwoom(QAxWidget):
 
             cnt = cnt + 1
 
-    def checkTriggerAndOrder(self, scode):
+    def checkTriggerAndOrder(self, code):
         if self.count % 1000 == 0:
             print('stock_value', self.myStock)
             print('not_signed_stock', self.not_signed_stock)
@@ -355,15 +355,15 @@ class Kiwoom(QAxWidget):
             #self.order(scode, 1, 85000, trade)
             if self.not_signed_stock:
                 for orderNo in self.not_signed_stcok:
-                    scode = self.not_signed_stock[orderNo]['종목코드']
+                    code = self.not_signed_stock[orderNo]['종목코드']
                     quantity = self.not_signed_stock[orderNo]['미체결수량']
                     trade = self.not_signed_stock[orderNo]['주문구분']
                     if trade == '매수':
                         trade = '매수취소'
-                        self.order(scode, 0, 0, trade, orderNo=orderNo)
+                        self.order(code, 0, 0, trade, orderNo=orderNo)
                     elif trade == '매도':
                         trade = '매도취소'
-                        self.order(scode, 0, 0, trade, orderNo=orderNo)
+                        self.order(code, 0, 0, trade, orderNo=orderNo)
         elif self.count % 1000 == 500:
             print('stock_value', self.myStock)
             print('not_signed_stock', self.not_signed_stock)
@@ -372,20 +372,20 @@ class Kiwoom(QAxWidget):
             #self.order(scode, 1, 80000, trade)
             if self.not_signed_stock:
                 for orderNo in self.not_signed_stcok:
-                    scode = self.not_signed_stock[orderNo]['종목코드']
+                    code = self.not_signed_stock[orderNo]['종목코드']
                     quantity = self.not_signed_stock[orderNo]['미체결수량']
                     trade = self.not_signed_stock[orderNo]['주문구분']
                     if trade == '매수':
                         trade = '매수취소'
-                        self.order(scode, 0, 0, trade, orderNo=orderNo)
+                        self.order(code, 0, 0, trade, orderNo=orderNo)
                     elif trade == '매도':
                         trade = '매도취소'
-                        self.order(scode, 0, 0, trade, orderNo=orderNo)
+                        self.order(code, 0, 0, trade, orderNo=orderNo)
         self.count = self.count + 1
 
-    def order(self, sCode, quantity, price, trade, orderType='지정가', orderNo=''):
+    def order(self, code, quantity, price, trade, orderType='지정가', orderNo=''):
         order = [trade, self.screen_meme_stock, self.account_num, self.realType.SENDTYPE['trade'][trade],
-                 sCode, quantity, price, self.realType.SENDTYPE['orderType'][orderType], orderNo]
+                 code, quantity, price, self.realType.SENDTYPE['orderType'][orderType], orderNo]
         self.logger.info('SendOrder : %s'%str(order))
         order_msg = self.dynamicCall('SendOrder(QString, QString, QString, int, QSting, int, int, QString, QString)',order)
         if order_msg:

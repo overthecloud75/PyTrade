@@ -4,7 +4,7 @@ from werkzeug.utils import redirect
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_sign_up, post_login, get_code, get_account_list, get_account_info, get_myStock, get_chart
+from models import post_sign_up, post_login, get_code, get_account_list, get_account_info, get_myStock, get_chart, get_signal
 from utils import request_get
 
 # blueprint
@@ -51,6 +51,12 @@ def login():
         flash(error)
     return render_template('user/login.html', form=form)
 
+@bp.route('/logout/')
+@login_required
+def logout():
+    session.clear()
+    return redirect(url_for('main.index'))
+
 @bp.route('/account/')
 @login_required
 def account():
@@ -69,29 +75,30 @@ def mystock():
     paging, data_list = get_myStock(account_num, page=page, is_paging=True)
     return render_template('stock/mystock.html', **locals())
 
-@bp.route('/logout/')
+@bp.route('/signal/')
 @login_required
-def logout():
-    session.clear()
-    return redirect(url_for('main.index'))
+def signal():
+    page, keyword, so = request_get(request.args)
+    paging, data_list = get_signal(page=page, is_paging=True)
+    return render_template('chart/signal.html', **locals())
 
 @bp.route('/chart/')
 def chart():
     page, keyword, so = request_get(request.args)
-    code = get_code(keyword)
-    if code:
-        codeName = keyword + ' (' + code + ')'
-        data_list = get_chart(code, isJson=True, so=so)
+    data = get_code(codeName=keyword)
+    if data:
+        codeName = keyword + ' (' + data['code'] + ')'
+        data_list = get_chart(data['code'], isJson=True, so=so)
         if data_list:
             period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
         else:
             period = ''
     else:
         keyword = '삼성전자'
-        codeName = 'keyword (005930)'
+        codeName = keyword + ' (005930)'
         data_list = get_chart('005930', isJson=True, so=so)
         period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
-    return render_template('chart.html', **locals())
+    return render_template('chart/chart.html', **locals())
 
 @bp.before_app_request
 def load_logged_in_user():

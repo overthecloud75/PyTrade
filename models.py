@@ -78,15 +78,14 @@ def update_profit(account, profit):
     collection.update_one({'date':date, 'account':account}, {'$set':update}, upsert=True)
 
 # code
-def get_code(codeName):
+def get_code(code=None, codeName=None):
     collection = db['code']
     data = None
     if codeName is not None and codeName != '':
         data = collection.find_one({'codeName':codeName})
-    if data is None:
-        return data
-    else:
-        return data['code']
+    elif code is not None and code != '':
+        data = collection.find_one({'code':code})
+    return data
 
 def update_code(update):
     collection = db['code']
@@ -142,21 +141,43 @@ def get_chart(code, isJson=False, so='1year'):
                 isNext = False
         return isNext, lastDate, chart
 
-def update_chart(code, chart, addMovingAverage=False, so='5year'):
+def update_chart(code, chart, so='5year'):
     collection = db['chart']
-    if addMovingAverage:
-        date, initialDate = getDate(so=so)
-        initialDate = int(initialDate)
-        for data in chart:
-            if int(data['date']) < initialDate:
-                collection.delete_one({'code':code, 'date':data['date']})
-            else:
-                collection.update_one({'code':code, 'date':data['date']}, {'$set':data}, upsert=True)
-    else:
-        for data in chart:
-            update = data
-            update['code'] = code
+    date, initialDate = getDate(so=so)
+    initialDate = int(initialDate)
+    for data in chart:
+        update = data
+        update['code'] = code
+        if int(data['date']) < initialDate:
+            break
+        else:
             collection.update_one({'code':code, 'date':data['date']}, {'$set':update}, upsert=True)
+
+# signal
+def get_signal(page=1, is_paging=False):
+    collection = db['signal']
+    if is_paging:
+        per_page = page_default['per_page']
+        offset = (page - 1) * per_page
+        data_list = collection.find(sort=[('date', -1)]).limit(per_page).skip(offset)
+        count = data_list.count()
+        paging = paginate(page, per_page, count)
+        return paging, data_list
+    else:
+        date, initialDate = getDate()
+        data_list = collection.find({'date':date})
+        return data_list
+
+def update_signal(code, date=None, type=None, trade=None, close=None):
+    if date is None or type is None or trade is None or close is None:
+        pass
+    else:
+        data = get_code(code)
+        if data:
+            collection = db['signal']
+            codeName = data['codeName']
+            update = {'code':code, 'codeName':codeName, 'date':date, 'type':type, 'trade':trade, 'close':close}
+            collection.update_one({'code':code, 'date':date}, {'$set':update}, upsert=True)
 
 
 

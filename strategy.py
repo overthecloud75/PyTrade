@@ -1,8 +1,8 @@
 import os
+import sys
 from kiwoom.kiwoom import *
 import logging
 import models
-import pandas as pd
 import copy
 from utils import checkStockFinished
 
@@ -34,13 +34,12 @@ class Strategy():
         self.get_my_stock(account_num)
         self.get_not_signed_stock(account_num)
 
-        #self.gathering_daily_chart()
-        #self.checkTatics()
+        self.gathering_daily_chart()
+        self.checkTatics()
 
-        self.gatering_movingAverage()
+        #self.gathering_movingAverage()
 
         QTest.qWait(10000)
-        self.read_code()
         self.kiwoom.screen_number_setting()
 
         QTest.qWait(5000)
@@ -97,32 +96,27 @@ class Strategy():
                 isNext, lastDate, chart = models.get_chart(code)
                 if isNext:
                     recentChart = self.kiwoom.dailyChart(code=code, lastDate=lastDate)
+                    chart = recentChart + chart
+                    chart = self.addMovingAverage(chart)
+                    recentChart = chart[0:len(recentChart)]
                     models.update_chart(code, recentChart)
-            # self.tatics(code=code, chart=chart)
 
-    def gatering_movingAverage(self):
-        self.logger.info('moving average')
-        for market in self.market:
-            code_list = self.kiwoom.get_code_list(market=self.market[market])
-            for idx, code in enumerate(code_list):
-                self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(code_list), market, code))
-                _, _, chart = models.get_chart(code, so='all')
-                copy_chart = copy.deepcopy(chart)
-                len_chart = len(chart)
-                for idx in range(len_chart):
-                    total_price = 0
-                    if 'ma120' in chart[idx]:
-                        break
-                    for value in chart[idx:idx+120]:
-                        total_price = total_price + value['close']
-                    copy_chart[idx]['ma120'] = int(total_price / len(chart[idx:idx+120]))
+    def addMovingAverage(self, chart):
+        copy_chart = copy.deepcopy(chart)
+        len_chart = len(chart)
+        for idx in range(len_chart):
+            total_price = 0
+            if 'ma120' in chart[idx]:
+                break
+            for value in chart[idx:idx + 120]:
+                total_price = total_price + value['close']
+            copy_chart[idx]['ma120'] = int(total_price / len(chart[idx:idx + 120]))
 
-                    total_price = 0
-                    for value in chart[idx:idx+20]:
-                        total_price = total_price + value['close']
-                    copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx+20]))
-
-                models.update_chart(code, copy_chart, addMovingAverage=True)
+            total_price = 0
+            for value in chart[idx:idx + 20]:
+                total_price = total_price + value['close']
+            copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx + 20]))
+        return copy_chart
 
     def checkTatics(self):
         self.logger.info('check tatics')
@@ -131,17 +125,14 @@ class Strategy():
             for idx, code in enumerate(code_list):
                 self.tatics(code)
 
-    def tatics(self, code=None, period=120, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
+    def tatics(self, code=None, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
         # 그랜빌의 매매법칙중 4번째 매수 법칙
         is_ok = False
         _, _, chart = models.get_chart(code)
-        if chart is None or len(chart) < period:
-            is_ok = False
+        if not chart or 'ma120' not in chart[0]:
+            pass
         else:
-            total_price = 0
-            for value in chart[:period]:
-                total_price = total_price + value['close']
-            average_price = total_price / period
+            average_price = chart[0]['ma120']
 
             # 오늘자 주가가 120일 이평선에 걸쳐 있는지 확인
             bottom_stock_price = False
@@ -152,60 +143,32 @@ class Strategy():
 
             # 과거 일봉 데이터를 조회하면서 이동평균선보다 주가가 계속 밑에 존재하는지 확인
             prev_low_price = None
+            prev_average_price = None
             if bottom_stock_price:
-                prev_average_price = 0
                 price_top_moving = False
-                idx = 1
-
-                while True:
-                    if len(chart[idx:]) < period:
-                        # self.logger.info('there is no data for the period: %s' %period)
-                        break
-
-                    for value in chart[idx:period + idx]:
-                        total_price = total_price + value['close']
-                    prev_average_price = total_price / period
-
+                len_chart = len(chart) - 1
+                for i in range(len_chart):
+                    idx = i + 1
+                    prev_average_price = chart[idx]['ma120']
                     # target_period 동안 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
                     if prev_average_price <= chart[idx]['high'] and idx <= targetPeriod:
                         price_top_moving = False
                         break
-                    # target_periode 전에 이평선 위에 있는 구간 존재
+                    # target_period 전에 이평선 위에 있는 구간 존재
                     elif prev_average_price < chart[idx]['low'] and idx > targetPeriod:
-                        self.logger.info('%s일치 이평선 위에 있는 구간 확인됨' %period)
+                        self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
                         price_top_moving = True
                         prev_low_price = chart[idx]['low']
                         break
-                    idx = idx + 1
 
                 if price_top_moving:
                     if average_price > prev_average_price and high_price > prev_low_price:
                         is_ok = True
-        if is_ok:
-            self.logger.info('조건 통과')
-            codeName = self.kiwoom.get_codeName(code)
-            with open(self.condition_stock_path, 'a', encoding='utf-8') as f:
-                f.write('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
-                self.logger.info('%s\t%s\t현재가: %s\n' %(code, codeName, str(chart[0]['close'])))
+            if is_ok:
+                self.logger.info('조건 통과')
+                models.update_signal(code, date=chart[0]['date'], type='granville', trade='buy', close=chart[0]['close'])
 
-    def toDataFrame(self, chart):
-        dates = []
-        for data in chart:
-            dates.append(data['date'])
-        df = pd.DataFrame(chart, index=dates, columns=['open', 'high', 'low', 'close', 'volume', 'trading'])
-        return df
-
-    def read_code(self):
-        if os.path.exists(self.condition_stock_path):
-            with open(self.condition_stock_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                for line in lines:
-                    if line != '':
-                        ls = line.split('\t')
-
-                        code = ls[0]
-                        code_nm = ls[1]
-                        stock_price = int(ls[2].split('\n')[0])
-                        self.kiwoom.portfolio.update({code:{'종목명':code_nm, '현재가':stock_price}})
+    def read_signal(self):
+        pass
 
 

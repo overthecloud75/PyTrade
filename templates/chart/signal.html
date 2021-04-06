@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container my-3">
+    <table class="table">
+    {% if data_list %}
+        <thead>
+        <tr class="thead-dark">
+            <th>번호</th>
+            <th>date</th>
+            <th>code</th>
+            <th>종목명</th>
+            <th>type</th>
+            <th>trade</th>
+            <th>price</th>
+        </tr>
+        {% for data in data_list %}
+        <tr>
+            <td>{{ paging.count - paging.offset - loop.index0 }}</td>
+            <td>{{ data['date'] }}</td>
+            <td>{{ data['code'] }}</td>
+            <td><a href="{{ url_for('main.chart', kw=data['codeName']) }}">{{ data['codeName'] }}</a></td>
+            <td>{{ data['type'] }}</td>
+            <td>{{ data['trade'] }}</td>
+            <td>{{ data['close'] }}</td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr>
+            <td colspan="3">signal 정보가 없습니다.</td>
+        </tr>
+    {% endif %}
+    </table>
+</div>
+{% include 'paging.html' %}
+{% endblock %}
