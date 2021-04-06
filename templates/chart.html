@@ -59,6 +59,28 @@ var chart = new CanvasJS.Chart("chartContainer", {
 	{
 		type: "line",
 		showInLegend: true,
+		name: "ma120",
+		yValueFormatString: "#,##0",
+		dataPoints: [
+		    {% for data in data_list %}
+			{ x: {{ loop.index0 }}, y: {{ data['ma120'] }} },
+			{% endfor %}
+		]
+	},
+	{
+		type: "line",
+		showInLegend: true,
+		name: "ma20",
+		yValueFormatString: "#,##0",
+		dataPoints: [
+		    {% for data in data_list %}
+			{ x: {{ loop.index0 }}, y: {{ data['ma20'] }} },
+			{% endfor %}
+		]
+	},
+	{
+		type: "line",
+		showInLegend: true,
 		name: "volume",
 		axisYType: "secondary",
 		yValueFormatString: "#,##0",

@@ -1,9 +1,8 @@
-import copy
 from werkzeug.security import check_password_hash
-import datetime
 from views.config import page_default
-from utils import paginate
+from utils import paginate, getDate
 from pymongo import MongoClient
+import datetime
 
 mongoClient = MongoClient('mongodb://localhost:27017/')
 db = mongoClient['pytrade']
@@ -60,19 +59,19 @@ def get_account_info(account, page=1, is_paging=False):
         paging = paginate(page, per_page, count)
         return paging, data_list
     else:
-        date = datetime.datetime.today().strftime("%Y%m%d")
+        date, _ = getDate()
         account_info = collection.find_one({'date':date, 'account':account})
         return account_info
 
 def update_account_info(update):
     collection = db['account']
-    date = datetime.datetime.today().strftime("%Y%m%d")
+    date, _ = getDate()
     update['date'] = date
     collection.update_one({'date':date, 'account':update['account']}, {'$set':update}, upsert=True)
 
 def update_profit(account, profit):
     collection = db['profit']
-    date = datetime.datetime.today().strftime("%Y%m%d")
+    date, _ = getDate()
     update = profit
     update['date'] = date
     update['user'] = account
@@ -97,7 +96,7 @@ def update_code(update):
         pass
 
 # mystock
-def get_myStock(account, code=None, page=1, is_paging=False):
+def get_myStock(account, page=1, is_paging=False):
     collection = db['stock']
     if is_paging:
         per_page = page_default['per_page']
@@ -112,7 +111,7 @@ def get_myStock(account, code=None, page=1, is_paging=False):
 
 def update_myStock(account, code, myStock):
     collection = db['stock']
-    date = datetime.datetime.today().strftime("%Y%m%d")
+    date, _ = getDate()
     update = myStock
     update['date'] = date
     update['user'] = account
@@ -122,14 +121,7 @@ def update_myStock(account, code, myStock):
 def get_chart(code, isJson=False, so='1year'):
     collection = db['chart']
     isNext = True
-    today = datetime.date.today()
-    if so == '6month':
-        initialDate = today - datetime.timedelta(days=180)
-    elif so == '3year':
-        initialDate = today - datetime.timedelta(days=365 * 3)
-    else:
-        initialDate = today - datetime.timedelta(days=365)
-    initialDate = initialDate.strftime("%Y%m%d")
+    date, initialDate = getDate(so=so)
     chart = []
     if isJson:
         chartData = collection.find({'code':code, 'date':{"$gt":initialDate}}, sort=[('date', 1)])
@@ -138,13 +130,6 @@ def get_chart(code, isJson=False, so='1year'):
             chart.append(data)
         return chart
     else:
-        # except weekend
-        if today.weekday() == 5:
-            today = today - datetime.timedelta(days=1)
-        elif today.weekday() == 6:
-            today = today - datetime.timedelta(days=2)
-        date = today.strftime("%Y%m%d")
-
         lastDate = None
         lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
         if lastChart is not None:
@@ -157,12 +142,21 @@ def get_chart(code, isJson=False, so='1year'):
                 isNext = False
         return isNext, lastDate, chart
 
-def update_chart(code, chart):
+def update_chart(code, chart, addMovingAverage=False, so='5year'):
     collection = db['chart']
-    for data in chart:
-        update = data
-        update['code'] = code
-        collection.update_one({'code':code, 'date':data['date']}, {'$set':update}, upsert=True)
+    if addMovingAverage:
+        date, initialDate = getDate(so=so)
+        initialDate = int(initialDate)
+        for data in chart:
+            if int(data['date']) < initialDate:
+                collection.delete_one({'code':code, 'date':data['date']})
+            else:
+                collection.update_one({'code':code, 'date':data['date']}, {'$set':data}, upsert=True)
+    else:
+        for data in chart:
+            update = data
+            update['code'] = code
+            collection.update_one({'code':code, 'date':data['date']}, {'$set':update}, upsert=True)
 
 
 

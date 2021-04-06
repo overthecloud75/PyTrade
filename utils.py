@@ -67,4 +67,25 @@ def checkStockFinished():
             isStockFinished = True
     return isStockFinished
 
+def getDate(so='all'):
+    today = datetime.date.today()
+    if so == '6month':
+        initialDate = today - datetime.timedelta(days=180)
+    elif so == '3year':
+        initialDate = today - datetime.timedelta(days=365 * 3)
+    elif so == '5year':
+        initialDate = today - datetime.timedelta(days=365 * 5)
+    elif so == 'all':
+        initialDate = today - datetime.timedelta(days=360 * 100)
+    else:
+        initialDate = today - datetime.timedelta(days=365)
+    initialDate = initialDate.strftime("%Y%m%d")
+
+    if today.weekday() == 5:
+        today = today - datetime.timedelta(days=1)
+    elif today.weekday() == 6:
+        today = today - datetime.timedelta(days=2)
+    date = today.strftime("%Y%m%d")
+    return date, initialDate
+
 

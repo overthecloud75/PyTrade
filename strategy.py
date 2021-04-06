@@ -3,6 +3,7 @@ from kiwoom.kiwoom import *
 import logging
 import models
 import pandas as pd
+import copy
 from utils import checkStockFinished
 
 class Strategy():
@@ -33,8 +34,10 @@ class Strategy():
         self.get_my_stock(account_num)
         self.get_not_signed_stock(account_num)
 
-        self.gathering_daily_chart()
-        self.checkTatics()
+        #self.gathering_daily_chart()
+        #self.checkTatics()
+
+        self.gatering_movingAverage()
 
         QTest.qWait(10000)
         self.read_code()
@@ -77,7 +80,7 @@ class Strategy():
 
     def get_not_signed_stock(self, account_num):
         self.not_signed_stock = self.kiwoom.get_not_signed_stock(account_num)
-        self.logger.info('not_signed_stock : %s' % str(self.not_signed_stock))
+        self.logger.info('not_signed_stock : %s' %str(self.not_signed_stock))
 
     def gathering_daily_chart(self):
         self.logger.info('gathering daily chart')
@@ -90,18 +93,43 @@ class Strategy():
                 if not isStockFinished:
                     break
                 self.kiwoom.disconnectRealData()
-                self.logger.info('%s/%s : %s stock code: %s is updating' %(idx, len(code_list), market, code))
+                self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(code_list), market, code))
                 isNext, lastDate, chart = models.get_chart(code)
                 if isNext:
                     recentChart = self.kiwoom.dailyChart(code=code, lastDate=lastDate)
                     models.update_chart(code, recentChart)
             # self.tatics(code=code, chart=chart)
+
+    def gatering_movingAverage(self):
+        self.logger.info('moving average')
+        for market in self.market:
+            code_list = self.kiwoom.get_code_list(market=self.market[market])
+            for idx, code in enumerate(code_list):
+                self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(code_list), market, code))
+                _, _, chart = models.get_chart(code, so='all')
+                copy_chart = copy.deepcopy(chart)
+                len_chart = len(chart)
+                for idx in range(len_chart):
+                    total_price = 0
+                    if 'ma120' in chart[idx]:
+                        break
+                    for value in chart[idx:idx+120]:
+                        total_price = total_price + value['close']
+                    copy_chart[idx]['ma120'] = int(total_price / len(chart[idx:idx+120]))
+
+                    total_price = 0
+                    for value in chart[idx:idx+20]:
+                        total_price = total_price + value['close']
+                    copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx+20]))
+
+                models.update_chart(code, copy_chart, addMovingAverage=True)
+
     def checkTatics(self):
         self.logger.info('check tatics')
-        market_name = '코스닥'
-        code_list = self.kiwoom.get_code_list(market=self.market[market_name])
-        for idx, code in enumerate(code_list):
-            self.tatics(code)
+        for market in self.market:
+            code_list = self.kiwoom.get_code_list(market=self.market[market])
+            for idx, code in enumerate(code_list):
+                self.tatics(code)
 
     def tatics(self, code=None, period=120, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
         # 그랜빌의 매매법칙중 4번째 매수 법칙

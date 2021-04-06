@@ -3,7 +3,8 @@
 ### 2. Usage
 py -3.8 stockcode (for updating codeName and code in DB) <br>
 py -3.7 stock.py (for kiwoom trading) <br>
-py -3.8 main.py (for flask server)
+py -3.8 main.py (for flask server) <br>
+http://127.0.0.1:5000
 ### 3. Acknowlegements
 this implremenation has been tested with 32bit Python 3.7.9 <br>
 and 64bit python 3.8.6

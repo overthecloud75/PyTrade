@@ -87,8 +87,9 @@ def chart():
         else:
             period = ''
     else:
-        codeName = '동진세미켐 (005290)'
-        data_list = get_chart('005290', isJson=True, so=so)
+        keyword = '삼성전자'
+        codeName = 'keyword (005930)'
+        data_list = get_chart('005930', isJson=True, so=so)
         period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
     return render_template('chart.html', **locals())
 
