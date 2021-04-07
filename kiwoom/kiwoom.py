@@ -1,5 +1,4 @@
 from PyQt5.QAxContainer import *
-from PyQt5.QtCore import *
 from PyQt5.QtTest import QTest
 import pythoncom
 from config.errorCode import *
@@ -14,71 +13,80 @@ class Kiwoom(QAxWidget):
 
         self.realType = RealType()
 
+        # errorCode
+        self.lastErrCode = None
+
         # 계좌 관련된 변수
         self.profit = {}
-        self.myStock = {}
+        self.myStock = []
         self.not_signed_stock = {}
-        self.account_num = None
         self.account_secret = '0000'
         self.deposit = 0  # 예수금
-        self.use_money = 0  # 실제 투자에 사용할 금액
-        self.use_money_percent = 0.5 # 예수금에서 실제 사용할 비율
         self.output_deposit = 0
 
         # pythoncom
-        self.block = False
-        self.received = False
+        self.block = True
 
-        # 종목 분석 용
-        self.chart = []
-        self.count = 0
-
-        # condition 맞는 종목
-        self.portfolio = {}
+        # realData
+        self.realStockData = {}
 
         # 요청 스크린 번호
-        self.screen_my_info = '2000' # 계좌 관련한 스크린 번호
-        self.screen_calculation_stock = '4000'
-        self.screen_real_stock = '5000'
-        self.screen_meme_stock = '6000'
+        self.screen_myInfo = '2000' # 계좌 관련한 스크린 번호
+        self.screen_chart = '4000'
+        self.screen_real = '5000'
+        self.screen_meme = '6000'
         self.screen_start_stop_real = '1000' # 장 시작/종료 실시간 스크린 번호
 
        # 초기 세팅 함수들
         self.get_ocx_instance()  # OCX 방식을 파이썬에 사용할 수 있게 변환해 주는 함수
+        self.event_slots()  # 키움과 연결하기 위한 시그널 /슬롯 모음, login, trade, realdata
 
     def get_ocx_instance(self):
         self.setControl('KHOPENAPI.KHOpenAPICtrl.1')  # ocx 확장자도 파이썬에서 사용할 수 있게 해 준다.
                                                       # registery에 저장된 API 모듈 불러오기
+
+    # dynamicCall
+    def SetInputValue(self, id, value):
+        self.dynamicCall("SetInputValue(QString, QString)", id, value)
+
+    def CommRqData(self, rqname, trcode, next, screen):
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", rqname, trcode, next, screen)
+
     def GetCommData(self, trcode, rqname, index, item):
         data = self.dynamicCall("GetCommData(QString, QString, int, QString)", trcode, rqname, index, item)
         return data.strip()
 
+    def GetCommRealData(self, code, fid):
+        data = self.dynamicCall("GetCommRealData(QString, int)", code, fid)
+        return data
+
+    def disconnectRealData(self):
+        self.dynamicCall('DisconnectRealData(QString)', self.screen_chart)
+
+    def stop_screen(self, sScrNo=None):
+        self.dynamicCall('DisconnectRealData(QString)', sScrNo)
+
+    # slots
     def event_slots(self):
         self.OnEventConnect.connect(self.login_slot)
         self.OnReceiveTrData.connect(self.tradata_slot)
         self.OnReceiveRealData.connect(self.realdata_slot)
 
-    def login(self):
-        self.dynamicCall('CommConnect()')   # dynamicCall은 pyQt5에서 제공하는 함수로 서버에 데이터를 송수신해 주는 역할을 함
+    def login_slot(self, errCode):
+        self.logger.info('login status: %s' %errors(errCode))
+        self.lastErrCode = errCode
         self.block = False
-        while not self.block:
-            pythoncom.PumpWaitingMessages()
 
-    def login_slot(self, err_code):
-        self.logger.info(errors(err_code))
-        self.block = True
-
-    def tradata_slot(self, sScrNo, rqname, trcode, sRecordName, isNext):
+    def tradata_slot(self, sScrNo, rqname, trcode, sRecordName, next):
         if rqname == '예수금상세현황요청':
             deposit = self.GetCommData(trcode, rqname, 0, '예수금')
             output_deposit = self.GetCommData(trcode, rqname, 0, '출금가능금액')
 
             self.deposit = int(deposit)
-            self.use_money = float(self.deposit) * self.use_money_percent / 4
-            self.output_deposit = int(output_deposit)
+            self.output_deposit = int(output_deposit )
 
-            self.stop_screen_cancel(self.screen_my_info)
-            self.block = True
+            self.stop_screen(self.screen_myInfo)
+            self.block = False
 
         elif rqname == '계좌평가잔고내역요청':
             buy_money = self.GetCommData(trcode, rqname, 0, '총매입금액')
@@ -88,10 +96,11 @@ class Kiwoom(QAxWidget):
             self.profit['총평가손익금액'] = int(loss_money)
             self.profit['총수익률(%)'] = float(loss_rate)
 
+            self.myStock = []
             rows = self.dynamicCall('GetRepeatCnt(Qstring, Qstring)', trcode, rqname)
             for i in range(rows):
                 code = self.GetCommData(trcode, rqname, i, '종목번호')
-                code_name = self.GetCommData(trcode, rqname, i, '종목명')
+                codeName = self.GetCommData(trcode, rqname, i, '종목명')
                 stock_quantity = self.GetCommData(trcode, rqname, i, '보유수량')
                 buy_price = self.GetCommData(trcode, rqname, i, '매입가')
                 earn_late = self.GetCommData(trcode, rqname, i, '수익률(%)')
@@ -100,24 +109,13 @@ class Kiwoom(QAxWidget):
                 possible_quantity = self.GetCommData(trcode, rqname, i, '매매가능수량')
 
                 code = code[1:]
-                if code in self.myStock:
-                    pass
-                else:
-                    self.myStock[code] = {}
-
-                self.myStock[code]['종목명'] = code_name
-                self.myStock[code]['보유수량'] =  int(stock_quantity)
-                self.myStock[code]['매입가'] = int(buy_price)
-                self.myStock[code]['수익률'] = float(earn_late)
-                self.myStock[code]['현재가'] = int(current_price)
-                self.myStock[code]['매입금액'] = int(total_exec_price)
-                self.myStock[code]['매매가능수량'] = int(possible_quantity)
-
-            if isNext == '2':
-                self.get_myStock(isNext='2')
+                self.myStock.append({'code':code, 'codeName':codeName, '보유수량':int(stock_quantity), '매입가':int(buy_price),
+                                     '수익률':float(earn_late), '현재가':int(current_price), '매입금액':int(total_exec_price), '매매가능수량':int(possible_quantity)})
+            if next == '2':
+                self.get_myStock(next=next)
             else:
-                self.stop_screen_cancel(self.screen_my_info)
-                self.block = True
+                self.stop_screen(self.screen_myInfo)
+                self.block = False
 
         elif rqname == '실시간미체결요청':
             rows = self.dynamicCall('GetRepeatCnt(Qstring, Qstring)', trcode, rqname)
@@ -147,11 +145,11 @@ class Kiwoom(QAxWidget):
                 self.not_sigend_stock[order_no]['미체결수량'] = int(not_quantity)
                 self.not_signed_stock[order_no]['미체결량'] = int(ok_quantity)
 
-            if isNext == '2':
-                self.get_not_signed_stock(isNext='2')
+            if next == '2':
+                self.get_not_signed_stock(next=next)
             else:
-                self.stop_screen_cancel(self.screen_my_info)
-                self.block = True
+                self.stop_screen(self.screen_myInfo)
+                self.block = False
                 self.logger.info(rqname + ' 종료')
 
         elif rqname == '주식일봉차트조회':
@@ -170,30 +168,44 @@ class Kiwoom(QAxWidget):
                 if date == self.lastDate:
                     isLast = True
                     break
-                data = {'date':date, 'open':int(open), 'high':int(high), 'low':int(low), 'close':int(close), 'volume':int(volume), 'trading':int(trading)}
+                data = {'code':code, 'date':date, 'open':int(open), 'high':int(high), 'low':int(low), 'close':int(close), 'volume':int(volume), 'trading':int(trading)}
                 self.chart.append(data.copy())
 
             if not isLast:
-                if isNext == '2':
-                    self.dailyData(code=code, isNext=isNext)
+                if next == '2':
+                    self.chartData(type='daily', code=code, next=next)
                 else:
-                    self.block = True
+                    self.stop_screen(self.screen_chart)
+                    self.block = False
             else:
-                self.block = True
+                self.block = False
 
-    def realdata(self, scode):
-        self.dynamicCall('SetRealReg(QString, QString, QString, QString)',
-                         self.screen_start_stop_real, scode, '20', '0')
+        elif rqname == '주식분봉차트조회':
+            code = self.GetCommData(trcode, rqname, 0, '종목코드')
+            cnt = self.dynamicCall('GetRepeatCnt(QString, QString)', trcode, rqname)
 
-    def disconnectRealData(self):
-        self.dynamicCall('DisconnectRealData(QString)', self.screen_calculation_stock)
+            for i in range(cnt):
+                timestamp = self.GetCommData(trcode, rqname, i, '체결시간')
+                open = self.GetCommData(trcode, rqname, i, '시가')
+                high = self.GetCommData(trcode, rqname, i, '고가')
+                low = self.GetCommData(trcode, rqname, i, '저가')
+                close = self.GetCommData(trcode, rqname, i, '현재가')
+                volume = self.GetCommData(trcode, rqname, i, '거래량')
 
-    def realdata_slot(self, sCode, sRealType, sRealData):
+                data = {'code':code, 'timestamp':timestamp, 'open':int(open), 'high':int(high), 'low':int(low), 'close':int(close), 'volume':int(volume)}
+                self.chart.append(data.copy())
 
-        if sRealType == '장시작시간':
+            self.stop_screen(self.screen_chart)
+            self.block = False
+
+        else:
+            print(sScrNo, sRecordName, rqname, trcode)
+
+    def realdata_slot(self, code, type, sRealData):
+
+        if type == '장시작시간':
             self.logger.info('장시작시간')
-            fid = self.realType.REALTYPE[sRealType]['장운영구분'] # (0:장시작전, 2:장종료전, 3:장시작)
-            value = self.dynamicCall('GetCommRealData(QString, int)', sCode, fid)
+            value = self.GetCommRealData(code, self.realType.REALTYPE[type]['장운영구분'])  # (0:장시작전, 2:장종료전, 3:장시작)
             fid_mean = None
             if value == '0':
                 fid_mean = '장시작 전'
@@ -203,80 +215,76 @@ class Kiwoom(QAxWidget):
                 fid_mean = '장종료, 동시호가로 넘어감 '
             elif value == '4':
                 fid_mean = '3시간30분 장 종료'
-            self.logger.info('%s: %s'%(sRealType, fid_mean))
+            self.logger.info('%s: %s'%(type, fid_mean))
 
-        elif sRealType == '주식체결':
-            date = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['체결시간'])
-            current_price = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['현재가'])
-            compared = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['전일대비'])
-            fluctuation = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['등락율'])
-            ask = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['(최우선)매도호가'])
-            bid = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['(최우선)매수호가'])
-            quantity = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['거래량'])
-            value = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['누적거래량'])
-            high_price = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['고가'])
-            start_price = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['시가'])
-            low_price = self.dynamicCall('GetCommRealData(QString, int)', sCode, self.realType.REALTYPE[sRealType]['저가'])
+        elif type == '주식체결':
+            timestamp = self.GetCommRealData(code, self.realType.REALTYPE[type]['체결시간'])
+            close = self.GetCommRealData(code, self.realType.REALTYPE[type]['현재가'])
+            compared = self.GetCommRealData(code, self.realType.REALTYPE[type]['전일대비'])
+            fluctuation = self.GetCommRealData(code, self.realType.REALTYPE[type]['등락율'])
+            ask = self.GetCommRealData(code, self.realType.REALTYPE[type]['(최우선)매도호가'])
+            bid = self.GetCommRealData(code, self.realType.REALTYPE[type]['(최우선)매수호가'])
+            quantity = self.GetCommRealData(code, self.realType.REALTYPE[type]['거래량'])
+            volume = self.GetCommRealData(code, self.realType.REALTYPE[type]['누적거래량'])
+            high = self.GetCommRealData(code, self.realType.REALTYPE[type]['고가'])
+            open = self.GetCommRealData(code, self.realType.REALTYPE[type]['시가'])
+            low = self.GetCommRealData(code, self.realType.REALTYPE[type]['저가'])
 
-            real_data = {'체결시간':date, '현재가':int(current_price), '전일대비':int(compared), '등락률':float(fluctuation),
-                         '(최우선)매도호가':abs(int(ask)), '(최우선)매수호가':abs(int(bid)), '거래량':int(quantity), '누적거래량':abs(int(value)),
-                         '고가':int(high_price), '시가':int(start_price), '저가':int(low_price)}
-            if sCode not in self.portfolio:
-                self.portfolio[sCode] = real_data
-            else:
-                self.portfolio[sCode].update(real_data)
-            self.checkTriggerAndOrder(sCode)
+            self.realStockData[code] = {'timestamp':timestamp, 'close':int(close.lstrip('+').lstrip('-')), '전일대비':int(compared), '등락률':float(fluctuation),
+                         'ask':abs(int(ask)), 'bid':abs(int(bid)), '거래량':int(quantity), 'volume':abs(int(volume)),
+                         'high':int(high), 'open':int(open), 'low':int(low.lstrip('+').lstrip('-'))}
 
-    def stop_screen_cancel(self, sScrNo=None):
-        self.dynamicCall('DisconnectRealData(QString)', sScrNo)
+    # login
+    def login(self):
+        self.dynamicCall('CommConnect()')   # dynamicCall은 pyQt5에서 제공하는 함수로 서버에 데이터를 송수신해 주는 역할을 함
+        self.block = True
+        while self.block:
+            pythoncom.PumpWaitingMessages()
 
+    # account
     def get_account_list(self):
         account_list = self.dynamicCall('GetLoginInfo(QString)', 'ACCNO')
         account_list = account_list.split(';')[:-1]
         return account_list
 
-    def account_info(self, account_num, isNext='0'):
-        sRQName = '예수금상세현황요청'
-        self.account_num = account_num
-        self.logger.info(sRQName)
-        self.dynamicCall('SetInputValue(QString, QString)', '계좌번호', self.account_num)
-        self.dynamicCall('SetInputValue(QString, QString)', '비밀번호', self.account_secret)
-        self.dynamicCall('SetInputValue(QString, QString)', '비밀번호입력매체구분', '00')
-        self.dynamicCall('SetInputValue(QString, QString)', '조회구분', '3')
-        self.dynamicCall('CommRqData(QString, QString, int, QString)', sRQName, 'opw00001', isNext, self.screen_my_info)
+    def get_account_info(self, account_num, next='0'):
+        rqname = '예수금상세현황요청'
+        self.logger.info(rqname)
+        self.SetInputValue('계좌번호', account_num)
+        self.SetInputValue('비밀번호', self.account_secret)
+        self.SetInputValue('비밀번호입력매체구분', '00')
+        self.SetInputValue('조회구분', '3')
+        self.CommRqData(rqname, 'opw00001', next, self.screen_myInfo)
 
-        self.block = False
-        while not self.block:
+        self.block = True
+        while self.block:
             pythoncom.PumpWaitingMessages()
         return {'account':account_num, '예수금':self.deposit, '출금가능금액':self.output_deposit}
 
-    def get_myStock(self, account_num, isNext='0'):
-        sRQName = '계좌평가잔고내역요청'
-        self.account_num = account_num
-        self.logger.info(sRQName)
-        self.dynamicCall('SetInputValue(QString, QString)', '계좌번호', self.account_num)
-        self.dynamicCall('SetInputValue(QString, QString)', '비밀번호', self.account_secret)
-        self.dynamicCall('SetInputValue(QString, QString)', '비밀번호입력매체구분', '00')
-        self.dynamicCall('SetInputValue(QString, QString)', '조회구분', '1')
-        self.dynamicCall('CommRqData(QString, QString, int, QString)', sRQName, 'opw00018', isNext, self.screen_my_info)
+    def get_myStock(self, account_num, next='0'):
+        rqname = '계좌평가잔고내역요청'
+        self.logger.info(rqname)
+        self.SetInputValue('계좌번호', account_num)
+        self.SetInputValue('비밀번호', self.account_secret)
+        self.SetInputValue('비밀번호입력매체구분', '00')
+        self.SetInputValue('조회구분', '1')
+        self.CommRqData(rqname, 'opw00018', next, self.screen_myInfo)
 
-        self.block = False
-        i = 0
-        while not self.block:
+        self.block = True
+        while self.block:
             pythoncom.PumpWaitingMessages()
         return self.profit, self.myStock
 
-    def get_not_signed_stock(self, account_num, isNext='0'):
-        sRQName = '실시간미체결요청'
-        self.account_num = account_num
-        self.logger.info(sRQName)
-        self.dynamicCall('SetInputValue(QString, QString)', '계좌번호', self.account_num)
-        self.dynamicCall('SetInputValue(QString, QString)', '매매구분', '0') # 매매구분 = 0:전체, 1:매도, 2:매수
-        self.dynamicCall('SetInputValue(QString, QString)', '체결구분', '1') # 체결구분 = 0:전체, 2:체결, 1:미체결
-        self.dynamicCall('CommRqData(QString, QString, int, QString)', sRQName, 'opt10075', isNext, self.screen_my_info)
+    def get_not_signed_stock(self, account_num, next='0'):
+        rqname = '실시간미체결요청'
+        self.logger.info(rqname)
+        self.SetInputValue('계좌번호', account_num)
+        self.SetInputValue('매매구분', '0') # 매매구분 = 0:전체, 1:매도, 2:매수
+        self.SetInputValue('체결구분', '1') # 체결구분 = 0:전체, 2:체결, 1:미체결
+        self.CommRqData(rqname, 'opt10075', next, self.screen_myInfo)
 
-        self.block = False
-        while not self.block:
+        self.block = True
+        while self.block:
             pythoncom.PumpWaitingMessages()
         return self.not_signed_stock
 
@@ -289,24 +297,44 @@ class Kiwoom(QAxWidget):
         codeName = self.dynamicCall('GetMasterCodeName(QString)', code)
         return codeName
 
-    def dailyChart(self, code=None, lastDate=None):
-        self.block = False
+    # chart
+    def get_chart(self, type='daily', code=None, lastDate=None):
+        self.block = True
         self.chart = []
         self.lastDate = lastDate
-        self.dailyData(code=code)
-        while not self.block:
+        self.disconnectRealData()
+        self.chartData(type=type, code=code)
+        while self.block:
             pythoncom.PumpWaitingMessages()
         self.lastDate = None
         return self.chart
 
-    def dailyData(self, code=None, date=None, isNext='0'):
-        QTest.qWait(5000)
-        self.dynamicCall('SetInputValue(QString, QString)', '종목코드', code)
-        self.dynamicCall('SetInputValue(QString, QString)', '수정주가부분', '1')
-        if date is not None:
-            self.dynamicCall('SetInputValue(QString, QString)', '기준일자', date)
-        self.dynamicCall('CommRqData(QString, QString, int, QString)', '주식일봉차트조회', 'opt10081', isNext, self.screen_calculation_stock)
+    def chartData(self, type='daily', code=None, date=None, next='0'):
+        self.SetInputValue('종목코드', code)
+        self.SetInputValue('수정주가부분', '1')
+        if type == 'daily':
+            QTest.qWait(5000)
+            if date is not None:
+                self.SetInputValue('기준일자', date)
+            self.CommRqData('주식일봉차트조회', 'opt10081', next, self.screen_chart)
+        elif type == 'min':
+            self.SetInputValue('틱범위', '1')
+            self.CommRqData('주식분봉차트조회', 'opt10080', next, self.screen_chart)
 
+    # realData
+    def realdata(self, code):
+        self.dynamicCall('SetRealReg(QString, QString, QString, QString)',
+                         self.screen_start_stop_real, code, '20', '0')
+
+    # order
+    def order(self, account_num, code, quantity, price, trade, orderType='지정가', orderNo=''):
+        order = [trade, self.screen_meme, account_num, self.realType.SENDTYPE['trade'][trade],
+                 code, quantity, price, self.realType.SENDTYPE['orderType'][orderType], orderNo]
+        self.logger.info('SendOrder : %s' %str(order))
+        order_msg = self.dynamicCall('SendOrder(QString, QString, QString, int, QSting, int, int, QString, QString)',order)
+        return order_msg
+
+    # screen
     def screen_number_setting(self):
         screen_overwrite = []
 
@@ -330,69 +358,23 @@ class Kiwoom(QAxWidget):
         # 스크린 번호 할당
         cnt = 0
         for code in screen_overwrite:
-            real_screen = int(self.screen_real_stock)
-            meme_screen = int(self.screen_meme_stock)
+            real_screen = int(self.screen_real)
+            meme_screen = int(self.screen_meme)
             if (cnt%50) == 0:
                 real_screen = real_screen + 1
                 meme_screen = meme_screen + 1
-                self.screen_real_stock = str(real_screen)
-                self.screen_meme_stock = str(meme_screen)
+                self.screen_real = str(real_screen)
+                self.screen_meme = str(meme_screen)
 
             if code in self.portfolio:
-                self.portfolio[code]['스크린번호'] = self.screen_real_stock
-                self.portfolio[code]['주문용스크린번호'] = self.screen_meme_stock
+                self.portfolio[code]['스크린번호'] = self.screen_real
+                self.portfolio[code]['주문용스크린번호'] = self.screen_meme
             else:
-                self.portfolio[code]= {'스크린번호':self.screen_real_stock, '주문용스크린번호':self.screen_meme_stock}
+                self.portfolio[code]= {'스크린번호':self.screen_real, '주문용스크린번호':self.screen_meme}
 
             cnt = cnt + 1
 
-    def checkTriggerAndOrder(self, code):
-        if self.count % 1000 == 0:
-            print('stock_value', self.myStock)
-            print('not_signed_stock', self.not_signed_stock)
-            print('portfolio', self.portfolio)
-            trade = '신규매수'
-            #self.order(scode, 1, 85000, trade)
-            if self.not_signed_stock:
-                for orderNo in self.not_signed_stcok:
-                    code = self.not_signed_stock[orderNo]['종목코드']
-                    quantity = self.not_signed_stock[orderNo]['미체결수량']
-                    trade = self.not_signed_stock[orderNo]['주문구분']
-                    if trade == '매수':
-                        trade = '매수취소'
-                        self.order(code, 0, 0, trade, orderNo=orderNo)
-                    elif trade == '매도':
-                        trade = '매도취소'
-                        self.order(code, 0, 0, trade, orderNo=orderNo)
-        elif self.count % 1000 == 500:
-            print('stock_value', self.myStock)
-            print('not_signed_stock', self.not_signed_stock)
-            print('portfolio', self.portfolio)
-            trade = '신규매도'
-            #self.order(scode, 1, 80000, trade)
-            if self.not_signed_stock:
-                for orderNo in self.not_signed_stcok:
-                    code = self.not_signed_stock[orderNo]['종목코드']
-                    quantity = self.not_signed_stock[orderNo]['미체결수량']
-                    trade = self.not_signed_stock[orderNo]['주문구분']
-                    if trade == '매수':
-                        trade = '매수취소'
-                        self.order(code, 0, 0, trade, orderNo=orderNo)
-                    elif trade == '매도':
-                        trade = '매도취소'
-                        self.order(code, 0, 0, trade, orderNo=orderNo)
-        self.count = self.count + 1
 
-    def order(self, code, quantity, price, trade, orderType='지정가', orderNo=''):
-        order = [trade, self.screen_meme_stock, self.account_num, self.realType.SENDTYPE['trade'][trade],
-                 code, quantity, price, self.realType.SENDTYPE['orderType'][orderType], orderNo]
-        self.logger.info('SendOrder : %s'%str(order))
-        order_msg = self.dynamicCall('SendOrder(QString, QString, QString, int, QSting, int, int, QString, QString)',order)
-        if order_msg:
-            self.logger.info(order_msg)
-            self.logger.info(trade + '전달 성공')
-        else:
-            self.logger.info(trade + '전달 실패')
 
 
 

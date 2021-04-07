@@ -74,7 +74,7 @@ def update_profit(account, profit):
     date, _ = getDate()
     update = profit
     update['date'] = date
-    update['user'] = account
+    update['account'] = account
     collection.update_one({'date':date, 'account':account}, {'$set':update}, upsert=True)
 
 # code
@@ -108,14 +108,13 @@ def get_myStock(account, page=1, is_paging=False):
         data_list = collection.find({'account': account})
         return data_list
 
-def update_myStock(account, code, myStock):
+def update_myStock(account, myStock):
     collection = db['stock']
     date, _ = getDate()
-    update = myStock
-    update['date'] = date
-    update['user'] = account
-    update['code'] = code
-    collection.update_one({'date':date, 'account':account, 'code':code}, {'$set':update}, upsert=True)
+    for data in myStock:
+        data['date'] = date
+        data['account'] = account
+        collection.update_one({'date':date, 'account':account, 'code':data['code']}, {'$set':data}, upsert=True)
 
 def get_chart(code, isJson=False, so='1year'):
     collection = db['chart']
@@ -141,17 +140,15 @@ def get_chart(code, isJson=False, so='1year'):
                 isNext = False
         return isNext, lastDate, chart
 
-def update_chart(code, chart, so='5year'):
+def update_chart(chart, so='5year'):
     collection = db['chart']
     date, initialDate = getDate(so=so)
     initialDate = int(initialDate)
     for data in chart:
-        update = data
-        update['code'] = code
         if int(data['date']) < initialDate:
             break
         else:
-            collection.update_one({'code':code, 'date':data['date']}, {'$set':update}, upsert=True)
+            collection.update_one({'code':data['code'], 'date':data['date']}, {'$set':data}, upsert=True)
 
 # signal
 def get_signal(page=1, is_paging=False):

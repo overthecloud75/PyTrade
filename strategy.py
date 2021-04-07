@@ -1,9 +1,9 @@
-import os
-import sys
-from kiwoom.kiwoom import *
+import threading
 import logging
-import models
 import copy
+
+from kiwoom.kiwoom import *
+import models
 from utils import checkStockFinished
 
 class Strategy():
@@ -12,45 +12,29 @@ class Strategy():
         self.logger.info('strategy start')
         self.kiwoom = Kiwoom()
 
+        # 변수
+        self.isFirstIn = True
+        self.isFirstOut = True
+
         # 기본 정보들
         self.market = {'코스피':'0', '코스닥':'10'}
 
-        # condition 맞는 종목
-        self.condition_stock_path = 'files/condition_stock.txt'
-
-        # 변수
-        self.account_info = None
-        self.profit = None
-        self.myStock = None
-        self.not_signed_stock = None
-
         # 초기 세팅 함수들
-        self.kiwoom.event_slots()       # 키움과 연결하기 위한 시그널 /슬롯 모음, login, trade, realdata
         self.kiwoom.login()             # 로그인 요청 함수
 
+        # account 정보 수집
         account_list = self.get_account_list()
-        account_num = account_list[0]
-        self.get_account_info(account_num)
-        self.get_my_stock(account_num)
-        self.get_not_signed_stock(account_num)
+        self.account_num = account_list[0]
+        self.account_info = self.get_account_info(self.account_num)
 
-        self.gathering_daily_chart()
-        self.checkTatics()
+        #QTest.qWait(10000)
+        #self.kiwoom.screen_number_setting()
 
-        #self.gathering_movingAverage()
-
-        QTest.qWait(10000)
-        self.kiwoom.screen_number_setting()
-
-        QTest.qWait(5000)
-
-        # 실시간 수신 관련 함수
-        self.logger.info('실시간 data 수신')
-        #self.kiwoom.realdata('005930')
+        self.saveAndCheck()
         # '005930' 삼성전자
-        # str(self.realType.REALTYPE['장시작시간']['장운영구분']), '0')
-        # '' 자리는 종목 코드가 들어가야 하나 빈 값으로 작성하면 종목이 아니라 주식 장의 시간 상태를 실시간으로 체크크
+        # '' 자리는 종목 코드가 들어가야 하나 빈 값으로 작성하면 종목이 아니라 주식 장의 시간 상태를 실시간으로 체크
 
+    # account
     def get_account_list(self):
         account_list = models.get_account_list()
         if account_list is None:
@@ -61,26 +45,29 @@ class Strategy():
 
     def get_account_info(self, account_num):
         isStockFinished = checkStockFinished()
-        self.account_info = None
+        account_info = None
         if isStockFinished:
-            self.account_info = models.get_account_info(account_num)
-        if self.account_info is None:
-            self.account_info = self.kiwoom.account_info(account_num)  # 예수금 상세현황 요청
-            models.update_account_info(self.account_info)
-        self.logger.info('account_lnfo: %s' %str(self.account_info))
+            account_info = models.get_account_info(account_num)
+        if account_info is None:
+            account_info = self.kiwoom.get_account_info(account_num)  # 예수금 상세현황 요청
+            models.update_account_info(account_info)
+        self.logger.info('account_lnfo: %s' %str(account_info))
+        return account_info
 
     def get_my_stock(self, account_num):
-        self.profit, self.myStock = self.kiwoom.get_myStock(account_num)  # 계좌평가잔고내역 요청
-        models.update_profit(account_num, self.profit)
-        self.logger.info('profit : %s' %str(self.profit))
-        for code in self.myStock:
-            models.update_myStock(account_num, code, self.myStock[code])
-            self.logger.info('myStock : %s' %str(self.myStock[code]))
+        profit, myStock = self.kiwoom.get_myStock(account_num)  # 계좌평가잔고내역 요청
+        models.update_profit(account_num, profit)
+        self.logger.info('profit : %s' %str(profit))
+        models.update_myStock(account_num, myStock)
+        self.logger.info('myStock : %s' %str(myStock))
+        return profit, myStock
 
     def get_not_signed_stock(self, account_num):
-        self.not_signed_stock = self.kiwoom.get_not_signed_stock(account_num)
-        self.logger.info('not_signed_stock : %s' %str(self.not_signed_stock))
+        not_signed_stock = self.kiwoom.get_not_signed_stock(account_num)
+        self.logger.info('not_signed_stock : %s' %str(not_signed_stock))
+        return not_signed_stock
 
+    # chart
     def gathering_daily_chart(self):
         self.logger.info('gathering daily chart')
 
@@ -91,15 +78,14 @@ class Strategy():
                 isStockFinished = checkStockFinished()
                 if not isStockFinished:
                     break
-                self.kiwoom.disconnectRealData()
                 self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(code_list), market, code))
                 isNext, lastDate, chart = models.get_chart(code)
                 if isNext:
-                    recentChart = self.kiwoom.dailyChart(code=code, lastDate=lastDate)
+                    recentChart = self.kiwoom.get_chart(type='daily', code=code, lastDate=lastDate)
                     chart = recentChart + chart
                     chart = self.addMovingAverage(chart)
                     recentChart = chart[0:len(recentChart)]
-                    models.update_chart(code, recentChart)
+                    models.update_chart(recentChart)
 
     def addMovingAverage(self, chart):
         copy_chart = copy.deepcopy(chart)
@@ -118,6 +104,7 @@ class Strategy():
             copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx + 20]))
         return copy_chart
 
+    # tatics
     def checkTatics(self):
         self.logger.info('check tatics')
         for market in self.market:
@@ -168,7 +155,71 @@ class Strategy():
                 self.logger.info('조건 통과')
                 models.update_signal(code, date=chart[0]['date'], type='granville', trade='buy', close=chart[0]['close'])
 
-    def read_signal(self):
-        pass
+    # trigger
+    def saveAndCheck(self):
+        isStockFinished = checkStockFinished()
+
+        if isStockFinished:
+            if self.isFirstIn:
+                self.get_my_stock(self.account_num)
+                # not_signed_stock = self.get_not_signed_stock(self.account_num)
+                self.isFirstIn = False
+                self.isFirstOut = True
+            else:
+                self.gathering_daily_chart()
+                self.checkTatics()
+        else:
+            profit, myStock = self.get_my_stock(self.account_num)
+            # not_signed_stock = self.get_not_signed_stock(self.account_num)
+            if self.isFirstOut:
+                self.logger.info('실시간 data 수신')
+                self.kiwoom.realdata('005930')
+                self.isFirstOut = False
+                self.isFirstIn = True
+            else:
+                trade = '신규매도'
+                code = myStock[0]['code']
+                print(code, trade)
+                if 'code' in myStock:
+                    ordMsg = self.kiwoom.order(self.account_num, code, 1, 80000, trade)
+                    self.logger.info(trade + ordMsg)
+            #print('realStock', self.kiwoom.realStockData)
+        t = threading.Timer(15, self.saveAndCheck)
+        t.start()
+
+    '''def checkTriggerAndOrder(self, account_num, code):
+        if self.count % 1000 == 0:
+            trade = '신규매수'
+            self.kiwoom.order(account_num, code, 1, 85000, trade)
+            if self.not_signed_stock:
+                for orderNo in self.not_signed_stock:
+                    code = self.not_signed_stock[orderNo]['종목코드']
+                    quantity = self.not_signed_stock[orderNo]['미체결수량']
+                    trade = self.not_signed_stock[orderNo]['주문구분']
+                    if trade == '매수':
+                        trade = '매수취소'
+                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                    elif trade == '매도':
+                        trade = '매도취소'
+                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+        elif self.count % 1000 == 500:
+            print('stock_value', self.myStock)
+            print('not_signed_stock', self.not_signed_stock)
+            trade = '신규매도'
+            self.kiwoom.order(account_num, code, 1, 80000, trade)
+            if self.not_signed_stock:
+                for orderNo in self.not_signed_stock:
+                    code = self.not_signed_stock[orderNo]['종목코드']
+                    quantity = self.not_signed_stock[orderNo]['미체결수량']
+                    trade = self.not_signed_stock[orderNo]['주문구분']
+                    if trade == '매수':
+                        trade = '매수취소'
+                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                    elif trade == '매도':
+                        trade = '매도취소'
+                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+        self.count = self.count + 1'''
+
+
 
 

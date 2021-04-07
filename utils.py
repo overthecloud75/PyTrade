@@ -81,10 +81,13 @@ def getDate(so='all'):
         initialDate = today - datetime.timedelta(days=365)
     initialDate = initialDate.strftime("%Y%m%d")
 
+    now = datetime.datetime.now()
     if today.weekday() == 5:
         today = today - datetime.timedelta(days=1)
     elif today.weekday() == 6:
         today = today - datetime.timedelta(days=2)
+    elif now.hour < 8:
+        today = today - datetime.timedelta(days=1)
     date = today.strftime("%Y%m%d")
     return date, initialDate
 

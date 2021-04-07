@@ -1,5 +1,6 @@
 # PyTrade
 ### 1. Result
+![삼성전자](https://user-images.githubusercontent.com/30888482/113681741-4b59ca00-96fd-11eb-8b82-8f110f05243f.PNG)
 ### 2. Usage
 py -3.8 stockcode (for updating codeName and code in DB) <br>
 py -3.7 stock.py (for kiwoom trading) <br>

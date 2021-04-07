@@ -10,15 +10,15 @@ stock_code = pd.read_html('http://kind.krx.co.kr/corpgeneral/corpList.do?method=
 stock_code.sort_values(['상장일'], ascending=True)
 
 # 필요한 것은 "회사명"과 "종목코드" 이므로 필요없는 column들은 제외
-stock_code = stock_code[['회사명', '종목코드']]
+stock_code = stock_code[['회사명', '종목코드', '업종']]
 
 # 한글 컬럼명을 영어로 변경
-stock_code = stock_code.rename(columns={'회사명': 'codeName', '종목코드': 'code'})
+stock_code = stock_code.rename(columns={'회사명':'codeName', '종목코드':'code', '업종':'sector'})
 
 # 종목코드가 6자리이기 때문에 6자리를 맞춰주기 위해 설정해줌
 stock_code.code = stock_code.code.map('{:06d}'.format)
 len_stock = len(stock_code)
 
 for i in range(len_stock):
-    update = {'codeName':stock_code.loc[i]['codeName'], 'code':stock_code.loc[i]['code']}
+    update = {'codeName':stock_code.loc[i]['codeName'], 'code':stock_code.loc[i]['code'], 'sector':stock_code.loc[i]['sector']}
     update_code(update)
