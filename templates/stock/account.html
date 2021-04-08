@@ -11,6 +11,7 @@
             <th>account</th>
             <th>예수금</th>
             <th>출금가능금액</th>
+            <th>주문가능금액</th>
         </tr>
         {% for data in data_list %}
         <tr>
@@ -19,6 +20,7 @@
             <td>{{ data['account'] }}</td>
             <td>{{ data['예수금'] }}</td>
             <td>{{ data['출금가능금액'] }}</td>
+            <td>{{ data['주문가능금액'] }}</td>
         </tr>
         {% endfor %}
     {% else %}

@@ -4,7 +4,7 @@ from werkzeug.utils import redirect
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_sign_up, post_login, get_code, get_account_list, get_account_info, get_myStock, get_chart, get_signal
+from models import post_signUp, post_login, get_code, get_accountList, get_accountInfo, get_myStock, get_chart, get_signal
 from utils import request_get
 
 # blueprint
@@ -27,7 +27,7 @@ def signup():
     form = UserCreateForm()
     if request.method == 'POST' and form.validate_on_submit():
         request_data = {'name':form.name.data, 'email':form.email.data, 'password':generate_password_hash(form.password1.data)}
-        error = post_sign_up(request_data)
+        error = post_signUp(request_data)
         if error:
             flash('이미 존재하는 사용자입니다.')
         else:
@@ -38,7 +38,7 @@ def signup():
 def login():
     form = UserLoginForm()
     if request.method == 'POST' and form.validate_on_submit():
-        request_data = {'email': form.email.data, 'password': form.password.data}
+        request_data = {'email':form.email.data, 'password':form.password.data}
         error, user_data = post_login(request_data)
         if error is None:
             del user_data['_id']
@@ -61,17 +61,23 @@ def logout():
 @login_required
 def account():
     page, keyword, so = request_get(request.args)
-    account_list = get_account_list()
-    account_num = account_list[0]
-    paging, data_list = get_account_info(account_num, page=page, is_paging=True)
+    accountList = get_accountList()
+    if accountList:
+        account_num = accountList[0]
+    else:
+        account_num = None
+    paging, data_list = get_accountInfo(account_num, page=page, is_paging=True)
     return render_template('stock/account.html', **locals())
 
 @bp.route('/mystock/')
 @login_required
 def mystock():
     page, keyword, so = request_get(request.args)
-    account_list = get_account_list()
-    account_num = account_list[0]
+    accountList = get_accountList()
+    if accountList:
+        account_num = accountList[0]
+    else:
+        account_num = None
     paging, data_list = get_myStock(account_num, page=page, is_paging=True)
     return render_template('stock/mystock.html', **locals())
 

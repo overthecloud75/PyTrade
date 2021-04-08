@@ -8,7 +8,7 @@ mongoClient = MongoClient('mongodb://localhost:27017/')
 db = mongoClient['pytrade']
 
 # users
-def post_sign_up(request_data):
+def post_signUp(request_data):
     collection = db['users']
     user_data = collection.find_one(filter={'email': request_data['email']})
     error = None
@@ -36,20 +36,20 @@ def post_login(request_data):
     return error, user_data
 
 # account
-def get_account_list():
+def get_accountList():
     collection = db['account']
-    data = collection.find_one({'account_list':{'$exists':'true'}})
+    data = collection.find_one({'accountList':{'$exists':'true'}})
     if data:
-        return data['account_list']
+        return data['accountList']
     else:
         return data
 
-def update_account_list(account_list):
+def update_accountList(accountList):
     collection = db['account']
-    update = {'account_list':account_list}
-    collection.update_one({'account_list': {'$exists':'true'}}, {'$set':update}, upsert=True)
+    update = {'accountList':accountList}
+    collection.update_one({'accountList': {'$exists':'true'}}, {'$set':update}, upsert=True)
 
-def get_account_info(account, page=1, is_paging=False):
+def get_accountInfo(account, page=1, is_paging=False):
     collection = db['account']
     if is_paging:
         per_page = page_default['per_page']
@@ -60,10 +60,10 @@ def get_account_info(account, page=1, is_paging=False):
         return paging, data_list
     else:
         date, _ = getDate()
-        account_info = collection.find_one({'date':date, 'account':account})
-        return account_info
+        accountInfo = collection.find_one({'date':date, 'account':account})
+        return accountInfo
 
-def update_account_info(update):
+def update_accountInfo(update):
     collection = db['account']
     date, _ = getDate()
     update['date'] = date

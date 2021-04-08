@@ -23,9 +23,8 @@ class Strategy():
         self.kiwoom.login()             # 로그인 요청 함수
 
         # account 정보 수집
-        account_list = self.get_account_list()
+        account_list = self.get_accountList()
         self.account_num = account_list[0]
-        self.account_info = self.get_account_info(self.account_num)
 
         #QTest.qWait(10000)
         #self.kiwoom.screen_number_setting()
@@ -35,26 +34,26 @@ class Strategy():
         # '' 자리는 종목 코드가 들어가야 하나 빈 값으로 작성하면 종목이 아니라 주식 장의 시간 상태를 실시간으로 체크
 
     # account
-    def get_account_list(self):
-        account_list = models.get_account_list()
-        if account_list is None:
-            account_list = self.kiwoom.get_account_list()  # user No 확인
-            models.update_account_list(account_list)
-        self.logger.info('account_list: %s' % str(account_list))
-        return account_list
+    def get_accountList(self):
+        accountList = models.get_accountList()
+        if accountList is None:
+            accountList = self.kiwoom.get_accountList()  # user No 확인
+            models.update_accountList(accountList)
+        self.logger.info('accountList: %s' % str(accountList))
+        return accountList
 
-    def get_account_info(self, account_num):
+    def get_accountInfo(self, account_num):
         isStockFinished = checkStockFinished()
-        account_info = None
+        accountInfo = None
         if isStockFinished:
-            account_info = models.get_account_info(account_num)
-        if account_info is None:
-            account_info = self.kiwoom.get_account_info(account_num)  # 예수금 상세현황 요청
-            models.update_account_info(account_info)
-        self.logger.info('account_lnfo: %s' %str(account_info))
-        return account_info
+            accountInfo = models.get_accountInfo(account_num)
+        if accountInfo is None:
+            accountInfo = self.kiwoom.get_accountInfo(account_num)  # 예수금 상세현황 요청
+            models.update_accountInfo(accountInfo)
+        self.logger.info('account_lnfo: %s' %str(accountInfo))
+        return accountInfo
 
-    def get_my_stock(self, account_num):
+    def get_myStock(self, account_num):
         profit, myStock = self.kiwoom.get_myStock(account_num)  # 계좌평가잔고내역 요청
         models.update_profit(account_num, profit)
         self.logger.info('profit : %s' %str(profit))
@@ -62,23 +61,23 @@ class Strategy():
         self.logger.info('myStock : %s' %str(myStock))
         return profit, myStock
 
-    def get_not_signed_stock(self, account_num):
-        not_signed_stock = self.kiwoom.get_not_signed_stock(account_num)
-        self.logger.info('not_signed_stock : %s' %str(not_signed_stock))
-        return not_signed_stock
+    def get_notSigned(self, account_num):
+        notSigned = self.kiwoom.getNotSigned(account_num)
+        self.logger.info('notSigned: %s' %str(notSigned))
+        return notSigned
 
     # chart
     def gathering_daily_chart(self):
         self.logger.info('gathering daily chart')
 
         for market in self.market:
-            code_list = self.kiwoom.get_code_list(market=self.market[market])
+            codeList = self.kiwoom.get_codeList(market=self.market[market])
 
-            for idx, code in enumerate(code_list):
+            for idx, code in enumerate(codeList):
                 isStockFinished = checkStockFinished()
                 if not isStockFinished:
                     break
-                self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(code_list), market, code))
+                self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(codeList), market, code))
                 isNext, lastDate, chart = models.get_chart(code)
                 if isNext:
                     recentChart = self.kiwoom.get_chart(type='daily', code=code, lastDate=lastDate)
@@ -108,8 +107,8 @@ class Strategy():
     def checkTatics(self):
         self.logger.info('check tatics')
         for market in self.market:
-            code_list = self.kiwoom.get_code_list(market=self.market[market])
-            for idx, code in enumerate(code_list):
+            codeList = self.kiwoom.get_codeList(market=self.market[market])
+            for idx, code in enumerate(codeList):
                 self.tatics(code)
 
     def tatics(self, code=None, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
@@ -161,15 +160,21 @@ class Strategy():
 
         if isStockFinished:
             if self.isFirstIn:
-                self.get_my_stock(self.account_num)
+                signed = self.kiwoom.get_signed(self.account_num)
+                print(signed)
+                pass
+                '''self.get_myStock(self.account_num)
                 # not_signed_stock = self.get_not_signed_stock(self.account_num)
                 self.isFirstIn = False
                 self.isFirstOut = True
-            else:
                 self.gathering_daily_chart()
-                self.checkTatics()
+                self.checkTatics()'''
+            else:
+                print(self.kiwoom.lastErrCode)
+            t = threading.Timer(120, self.saveAndCheck)
         else:
-            profit, myStock = self.get_my_stock(self.account_num)
+            self.get_accountInfo(self.account_num)
+            profit, myStock = self.get_myStock(self.account_num)
             # not_signed_stock = self.get_not_signed_stock(self.account_num)
             if self.isFirstOut:
                 self.logger.info('실시간 data 수신')
@@ -178,13 +183,12 @@ class Strategy():
                 self.isFirstIn = True
             else:
                 trade = '신규매도'
-                code = myStock[0]['code']
-                print(code, trade)
-                if 'code' in myStock:
-                    ordMsg = self.kiwoom.order(self.account_num, code, 1, 80000, trade)
-                    self.logger.info(trade + ordMsg)
+                if myStock:
+                    code = myStock[0]['code']
+                    ordMsg = self.kiwoom.sendOrder(self.account_num, code, 1, 80000, trade)
+                    self.logger.info(trade + str(ordMsg))
             #print('realStock', self.kiwoom.realStockData)
-        t = threading.Timer(15, self.saveAndCheck)
+            t = threading.Timer(15, self.saveAndCheck)
         t.start()
 
     '''def checkTriggerAndOrder(self, account_num, code):
