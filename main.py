@@ -1,13 +1,6 @@
 import os
 from logging.config import dictConfig
-
-from flask import Flask, url_for
-try:
-    from flask_restplus import Api
-except ImportError:
-    import werkzeug
-    werkzeug.cached_property = werkzeug.utils.cached_property
-    from flask_restplus import Api 
+from flask import Flask
 
 def create_app():
 

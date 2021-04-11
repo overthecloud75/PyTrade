@@ -1,6 +1,6 @@
 import threading
 import logging
-import copy
+import sys
 
 from kiwoom.kiwoom import *
 import models
@@ -87,7 +87,7 @@ class Strategy():
                     models.update_chart(recentChart)
 
     def addMovingAverage(self, chart):
-        copy_chart = copy.deepcopy(chart)
+        copy_chart = chart.copy()
         len_chart = len(chart)
         for idx in range(len_chart):
             total_price = 0
@@ -108,13 +108,22 @@ class Strategy():
         self.logger.info('check tatics')
         for market in self.market:
             codeList = self.kiwoom.get_codeList(market=self.market[market])
-            for idx, code in enumerate(codeList):
-                self.tatics(code)
+            for code in codeList:
+                self.periodCheck(code=code)
 
-    def tatics(self, code=None, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
+    def periodCheck(self, isLast=True, code=None):
+        _, _, chart = models.get_chart(code)
+        if isLast:
+            self.tatics(chart)
+        else:
+            len_chart = len(chart)
+            for idx in range(len_chart):
+                partChart = chart[idx:]
+                self.tatics(partChart)
+
+    def tatics(self, chart, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
         # 그랜빌의 매매법칙중 4번째 매수 법칙
         is_ok = False
-        _, _, chart = models.get_chart(code)
         if not chart or 'ma120' not in chart[0]:
             pass
         else:
@@ -152,7 +161,7 @@ class Strategy():
                         is_ok = True
             if is_ok:
                 self.logger.info('조건 통과')
-                models.update_signal(code, date=chart[0]['date'], type='granville', trade='buy', close=chart[0]['close'])
+                models.update_signal(chart[0]['code'], date=chart[0]['date'], type='granville', trade='buy', close=chart[0]['close'])
 
     # trigger
     def saveAndCheck(self):
@@ -160,15 +169,18 @@ class Strategy():
 
         if isStockFinished:
             if self.isFirstIn:
-                signed = self.kiwoom.get_signed(self.account_num)
-                print(signed)
-                pass
-                '''self.get_myStock(self.account_num)
-                # not_signed_stock = self.get_not_signed_stock(self.account_num)
+                #signed = self.kiwoom.get_signed(self.account_num)
+                #print(signed)
+                #pass
+                self.get_accountInfo(self.account_num)
+                self.get_myStock(self.account_num)
+                '''not_signed_stock = self.get_not_signed_stock(self.account_num)
                 self.isFirstIn = False
-                self.isFirstOut = True
+                self.isFirstOut = True'''
                 self.gathering_daily_chart()
-                self.checkTatics()'''
+                self.checkTatics()
+                self.logger.info('sys.exit')
+                sys.exit()
             else:
                 print(self.kiwoom.lastErrCode)
             t = threading.Timer(120, self.saveAndCheck)
