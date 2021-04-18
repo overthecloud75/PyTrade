@@ -83,15 +83,16 @@ class Strategy():
                     recentChart = self.kiwoom.get_chart(type='daily', code=code, lastDate=lastDate)
                     chart = recentChart + chart
                     chart = self.addMovingAverage(chart)
-                    recentChart = chart[0:len(recentChart)]
-                    models.update_chart(recentChart)
+                    models.update_chart(chart)
 
     def addMovingAverage(self, chart):
         copy_chart = chart.copy()
         len_chart = len(chart)
+        chart_size = 0
         for idx in range(len_chart):
             total_price = 0
             if 'ma120' in chart[idx]:
+                chart_size = idx
                 break
             for value in chart[idx:idx + 120]:
                 total_price = total_price + value['close']
@@ -101,6 +102,7 @@ class Strategy():
             for value in chart[idx:idx + 20]:
                 total_price = total_price + value['close']
             copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx + 20]))
+        copy_chart = copy_chart[:chart_size]
         return copy_chart
 
     # tatics
@@ -109,59 +111,83 @@ class Strategy():
         for market in self.market:
             codeList = self.kiwoom.get_codeList(market=self.market[market])
             for code in codeList:
-                self.periodCheck(code=code)
+                self.periodCheck(period=5, code=code)
 
-    def periodCheck(self, isLast=True, code=None):
-        _, _, chart = models.get_chart(code)
-        if isLast:
+    def periodCheck(self, period=None, code=None):
+        _, _, chart = models.get_chart(code, so='1years')
+        if period is None:
             self.tatics(chart)
         else:
             len_chart = len(chart)
             for idx in range(len_chart):
+                if idx >= period:
+                    break
                 partChart = chart[idx:]
                 self.tatics(partChart)
 
     def tatics(self, chart, targetPeriod=20):   # moving 이동 평균선, target 관심 영역의 기간
         # 그랜빌의 매매법칙중 4번째 매수 법칙
-        is_ok = False
         if not chart or 'ma120' not in chart[0]:
             pass
         else:
-            average_price = chart[0]['ma120']
+            ma120_price = chart[0]['ma120']
+            ma20_price = chart[0]['ma20']
+            len_chart = len(chart) - 1
+
+            type = 'granville'
+            high_price = chart[0]['high']
 
             # 오늘자 주가가 120일 이평선에 걸쳐 있는지 확인
-            bottom_stock_price = False
-            high_price = None
-            if chart[0]['low'] <= average_price and average_price <= chart[0]['high']:
-                bottom_stock_price = True
-                high_price = chart[0]['high']
-
-            # 과거 일봉 데이터를 조회하면서 이동평균선보다 주가가 계속 밑에 존재하는지 확인
-            prev_low_price = None
-            prev_average_price = None
-            if bottom_stock_price:
-                price_top_moving = False
-                len_chart = len(chart) - 1
+            if chart[0]['low'] <= ma120_price and ma120_price <= high_price:
                 for i in range(len_chart):
                     idx = i + 1
-                    prev_average_price = chart[idx]['ma120']
+                    prev_ma120_price = chart[idx]['ma120']
                     # target_period 동안 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
-                    if prev_average_price <= chart[idx]['high'] and idx <= targetPeriod:
-                        price_top_moving = False
+                    if prev_ma120_price <= chart[idx]['high'] and idx <= targetPeriod:
                         break
                     # target_period 전에 이평선 위에 있는 구간 존재
-                    elif prev_average_price < chart[idx]['low'] and idx > targetPeriod:
+                    elif prev_ma120_price < chart[idx]['low'] and idx > targetPeriod:
                         self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
-                        price_top_moving = True
                         prev_low_price = chart[idx]['low']
+                        # ma120및 price값이 prev 보다 상승
+                        if ma120_price > prev_ma120_price and high_price > prev_low_price:
+                            self.logger.info('조건 통과')
+                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=chart[0]['close'])
                         break
 
-                if price_top_moving:
-                    if average_price > prev_average_price and high_price > prev_low_price:
-                        is_ok = True
-            if is_ok:
-                self.logger.info('조건 통과')
-                models.update_signal(chart[0]['code'], date=chart[0]['date'], type='granville', trade='buy', close=chart[0]['close'])
+            type = 'ma'
+            if ma120_price < ma20_price:
+                for i in range(len_chart):
+                    idx = i + 1
+                    prev_ma120_price = chart[idx]['ma120']
+                    prev_ma20_price = chart[idx]['ma20']
+                    # target_period 동안 20일 이동 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
+                    if prev_ma120_price < prev_ma20_price and idx <= targetPeriod:
+                        break
+                        # target_period 전에 이평선 위에 있는 구간 존재
+                    elif prev_ma120_price < prev_ma20_price and idx > targetPeriod:
+                        self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
+                        # ma120및 price값이 prev 보다 상승
+                        if ma120_price > prev_ma120_price:
+                            self.logger.info('조건 통과')
+                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=chart[0]['close'])
+                        break
+            elif ma120_price > ma20_price:
+                for i in range(len_chart):
+                    idx = i + 1
+                    prev_ma120_price = chart[idx]['ma120']
+                    prev_ma20_price = chart[idx]['ma20']
+                    # target_period 동안 20일 이동 주가가 이동평균선보다 같거나 아래에 있으면 조건 통과 못 함
+                    if prev_ma120_price > prev_ma20_price and idx <= targetPeriod:
+                        break
+                        # target_period 전에 이평선 아래에 있는 구간 존재
+                    elif prev_ma120_price > prev_ma20_price and idx > targetPeriod:
+                        self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
+                        # ma120및 price값이 prev 보다 하락
+                        if ma120_price < prev_ma120_price:
+                            self.logger.info('조건 통과')
+                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='sell', close=chart[0]['close'])
+                        break
 
     # trigger
     def saveAndCheck(self):
@@ -177,7 +203,7 @@ class Strategy():
                 '''not_signed_stock = self.get_not_signed_stock(self.account_num)
                 self.isFirstIn = False
                 self.isFirstOut = True'''
-                self.gathering_daily_chart()
+                #self.gathering_daily_chart()
                 self.checkTatics()
                 self.logger.info('sys.exit')
                 sys.exit()

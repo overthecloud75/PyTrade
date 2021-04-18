@@ -4,7 +4,7 @@ from werkzeug.utils import redirect
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_signUp, post_login, get_code, get_accountList, get_accountInfo, get_myStock, get_chart, get_signal
+from models import post_signUp, post_login, get_code, get_accountList, get_accountInfo, get_myStock, get_chart, get_signal, get_chartSignal
 from utils import request_get
 
 # blueprint
@@ -105,6 +105,20 @@ def chart():
         data_list = get_chart('005930', isJson=True, so=so)
         period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
     return render_template('chart/chart.html', **locals())
+
+@bp.route('/chart_signal/')
+def chartSignal():
+    page, keyword, so = request_get(request.args)
+    data = get_code(codeName=keyword)
+    data_list = []
+    if data:
+        codeName = keyword + ' (' + data['code'] + ')'
+        data_list, buySignals, sellSignals = get_chartSignal(data['code'], type='ma', so=so)
+        if data_list:
+            period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
+        else:
+            period = ''
+    return render_template('chart/chart_signal.html', **locals())
 
 @bp.before_app_request
 def load_logged_in_user():

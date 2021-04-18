@@ -19,7 +19,7 @@
             <td>{{ paging.count - paging.offset - loop.index0 }}</td>
             <td>{{ data['date'] }}</td>
             <td>{{ data['code'] }}</td>
-            <td><a href="{{ url_for('main.chart', kw=data['codeName']) }}">{{ data['codeName'] }}</a></td>
+            <td><a href="{{ url_for('main.chartSignal', kw=data['codeName']) }}">{{ data['codeName'] }}</a></td>
             <td>{{ data['type'] }}</td>
             <td>{{ data['trade'] }}</td>
             <td>{{ data['close'] }}</td>

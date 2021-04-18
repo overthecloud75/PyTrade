@@ -118,21 +118,21 @@ def update_myStock(account, myStock):
 
 def get_chart(code, isJson=False, so='1year'):
     collection = db['chart']
-    isNext = True
     date, initialDate = getDate(so=so)
     chart = []
     if isJson:
-        chartData = collection.find({'code':code, 'date':{"$gt":initialDate}}, sort=[('date', 1)])
+        chartData = collection.find({'code':code, 'date':{'$gt':initialDate}}, sort=[('date', 1)])
         for data in chartData:
             del data['_id']
             chart.append(data)
         return chart
     else:
+        isNext = True
         lastDate = None
         lastChart = collection.find_one({'code':code}, sort=[('date', -1)])
         if lastChart is not None:
             lastDate = lastChart['date']
-            chartData = collection.find({'code':code, 'date':{"$gt":initialDate}}, sort=[('date', -1)])
+            chartData = collection.find({'code':code, 'date':{'$gt':initialDate}}, sort=[('date', -1)])
             for data in chartData:
                 del data['_id']
                 chart.append(data)
@@ -175,6 +175,31 @@ def update_signal(code, date=None, type=None, trade=None, close=None):
             codeName = data['codeName']
             update = {'code':code, 'codeName':codeName, 'date':date, 'type':type, 'trade':trade, 'close':close}
             collection.update_one({'code':code, 'date':date}, {'$set':update}, upsert=True)
+
+def get_chartSignal(code, type='granville', so='1year'):
+    date, initialDate = getDate(so=so)
+
+    collection = db['signal']
+    signals = collection.find({'code':code, 'type':type, 'date':{'$gt':initialDate}}, sort=[('date', 1)])
+    signalDict = {}
+    for signal in signals:
+        del signal['_id']
+        signalDict[signal['date']] = signal
+
+    collection = db['chart']
+    chartData = collection.find({'code':code, 'date':{'$gt':initialDate}}, sort=[('date', 1)])
+    chart = []
+    buySignals = []
+    sellSignals = []
+    for idx, data in enumerate(chartData):
+        del data['_id']
+        chart.append({'x':idx, 'date':data['date'], 'close':data['close'], 'ma120':data['ma120'], 'ma20':data['ma20']})
+        if data['date'] in signalDict:
+            if signalDict[data['date']]['trade'] == 'buy':
+                buySignals.append({'x':idx, 'close':data['close']})
+            elif signalDict[data['date']]['trade'] == 'sell':
+                sellSignals.append({'x':idx, 'close':data['close']})
+    return chart, buySignals, sellSignals
 
 
 

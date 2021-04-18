@@ -100,6 +100,8 @@ class Kiwoom(QAxWidget):
             buy_money = self._GetCommData(trcode, rqname, 0, '총매입금액')
             loss_money = self._GetCommData(trcode, rqname, 0, '총평가손익금액')
             loss_rate = self._GetCommData(trcode, rqname, 0, '총수익률(%)')
+            if buy_money == '':
+                buy_money = 0
             self.profit['총매입금액'] = int(buy_money)
             self.profit['총평가손익금액'] = int(loss_money)
             self.profit['총수익률(%)'] = float(loss_rate)
