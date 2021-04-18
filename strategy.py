@@ -224,7 +224,7 @@ class Strategy():
                     code = myStock[0]['code']
                     ordMsg = self.kiwoom.sendOrder(self.account_num, code, 1, 80000, trade)
                     self.logger.info(trade + str(ordMsg))
-            #print('realStock', self.kiwoom.realStockData)
+            #print('realStock', self.kiwoom.realStockData, self.kiwoom.orderbook)
             t = threading.Timer(15, self.saveAndCheck)
         t.start()
 
