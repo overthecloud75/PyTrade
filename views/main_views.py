@@ -85,7 +85,10 @@ def mystock():
 @login_required
 def signal():
     page, keyword, so = request_get(request.args)
-    paging, data_list = get_signal(page=page, is_paging=True)
+    if keyword:
+        paging, data_list = get_signal(page=page, codeName=keyword, so=so, is_paging=True)
+    else:
+        paging, data_list = get_signal(page=page, so=so, is_paging=True)
     return render_template('chart/signal.html', **locals())
 
 @bp.route('/chart/')

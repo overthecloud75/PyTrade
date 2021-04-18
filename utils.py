@@ -52,7 +52,7 @@ def request_get(request_data):
     if keyword == '?':
         keyword = '\?'
     so = request_data.get('so', '1year')
-    if so not in ['6month', '1year', '3year']:
+    if so not in ['6month', '1year', '3year', '5year']:
         so = '1year'
     return page, keyword, so
 

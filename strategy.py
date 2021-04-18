@@ -114,7 +114,7 @@ class Strategy():
                 self.periodCheck(period=5, code=code)
 
     def periodCheck(self, period=None, code=None):
-        _, _, chart = models.get_chart(code, so='1years')
+        _, _, chart = models.get_chart(code, so='1year')
         if period is None:
             self.tatics(chart)
         else:
@@ -195,9 +195,8 @@ class Strategy():
 
         if isStockFinished:
             if self.isFirstIn:
-                #signed = self.kiwoom.get_signed(self.account_num)
+                signed = self.kiwoom.get_signed(self.account_num)
                 #print(signed)
-                #pass
                 self.get_accountInfo(self.account_num)
                 self.get_myStock(self.account_num)
                 '''not_signed_stock = self.get_not_signed_stock(self.account_num)

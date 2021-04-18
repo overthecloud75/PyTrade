@@ -151,12 +151,16 @@ def update_chart(chart, so='5year'):
             collection.update_one({'code':data['code'], 'date':data['date']}, {'$set':data}, upsert=True)
 
 # signal
-def get_signal(page=1, is_paging=False):
+def get_signal(page=1, codeName=None, so='1year', is_paging=False):
+    date, initialDate = getDate(so=so)
     collection = db['signal']
     if is_paging:
         per_page = page_default['per_page']
         offset = (page - 1) * per_page
-        data_list = collection.find(sort=[('date', -1)]).limit(per_page).skip(offset)
+        if codeName is None:
+            data_list = collection.find({'date':{'$gt':initialDate}}, sort=[('date', -1)]).limit(per_page).skip(offset)
+        else:
+            data_list = collection.find({'codeName':codeName, 'date':{'$gt':initialDate}}, sort=[('date', -1)]).limit(per_page).skip(offset)
         count = data_list.count()
         paging = paginate(page, per_page, count)
         return paging, data_list
