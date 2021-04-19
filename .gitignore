@@ -5,3 +5,4 @@ config/__pycache__/
 kiwoom/__pycache__/
 files/
 log/
+hypothesis.py

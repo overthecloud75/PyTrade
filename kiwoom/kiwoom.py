@@ -29,7 +29,7 @@ class Kiwoom(QAxWidget):
 
         # realData
         self.realStockData = {}
-        self.orderbook = {}
+        self.orderBook = {}
 
         # 요청 스크린 번호
         self.screen_myInfo = '2000' # 계좌 관련한 스크린 번호
@@ -222,11 +222,11 @@ class Kiwoom(QAxWidget):
 
         # sendOrder시 예시) rqname : '신규매도'
 
-    def _realdataSlot(self, code, type, sRealData):
+    def _realdataSlot(self, code, sType, realData):
 
-        if type == '장시작시간':
+        if sType == '장시작시간':
             self.logger.info('장시작시간')
-            value = self._GetCommRealData(code, self.realType.REALTYPE[type]['장운영구분'])  # (0:장시작전, 2:장종료전, 3:장시작)
+            value = self._GetCommRealData(code, self.realType.REALTYPE[sType]['장운영구분'])  # (0:장시작전, 2:장종료전, 3:장시작)
             fid_mean = None
             if value == '0':
                 fid_mean = '장시작 전'
@@ -236,73 +236,73 @@ class Kiwoom(QAxWidget):
                 fid_mean = '장종료, 동시호가로 넘어감 '
             elif value == '4':
                 fid_mean = '3시간30분 장 종료'
-            self.logger.info('%s: %s'%(type, fid_mean))
+            self.logger.info('%s: %s' % (sType, fid_mean))
 
-        elif type == '주식체결':
-            timestamp = self._GetCommRealData(code, self.realType.REALTYPE[type]['체결시간'])
-            close = self._GetCommRealData(code, self.realType.REALTYPE[type]['현재가'])
-            compared = self._GetCommRealData(code, self.realType.REALTYPE[type]['전일대비'])
-            fluctuation = self._GetCommRealData(code, self.realType.REALTYPE[type]['등락율'])
-            ask = self._GetCommRealData(code, self.realType.REALTYPE[type]['(최우선)매도호가'])
-            bid = self._GetCommRealData(code, self.realType.REALTYPE[type]['(최우선)매수호가'])
-            quantity = self._GetCommRealData(code, self.realType.REALTYPE[type]['거래량'])
-            volume = self._GetCommRealData(code, self.realType.REALTYPE[type]['누적거래량'])
-            high = self._GetCommRealData(code, self.realType.REALTYPE[type]['고가'])
-            open = self._GetCommRealData(code, self.realType.REALTYPE[type]['시가'])
-            low = self._GetCommRealData(code, self.realType.REALTYPE[type]['저가'])
+        elif sType == '주식체결':
+            timestamp = self._GetCommRealData(code, self.realType.REALTYPE[sType]['체결시간'])
+            close = self._GetCommRealData(code, self.realType.REALTYPE[sType]['현재가']).lstrip('+').lstrip('-')
+            compared = self._GetCommRealData(code, self.realType.REALTYPE[sType]['전일대비'])
+            fluctuation = self._GetCommRealData(code, self.realType.REALTYPE[sType]['등락율'])
+            ask = self._GetCommRealData(code, self.realType.REALTYPE[sType]['(최우선)매도호가'])
+            bid = self._GetCommRealData(code, self.realType.REALTYPE[sType]['(최우선)매수호가'])
+            quantity = self._GetCommRealData(code, self.realType.REALTYPE[sType]['거래량'])
+            volume = self._GetCommRealData(code, self.realType.REALTYPE[sType]['누적거래량'])
+            high = self._GetCommRealData(code, self.realType.REALTYPE[sType]['고가']).lstrip('+').lstrip('-')
+            open = self._GetCommRealData(code, self.realType.REALTYPE[sType]['시가']).lstrip('+').lstrip('-')
+            low = self._GetCommRealData(code, self.realType.REALTYPE[sType]['저가']).lstrip('+').lstrip('-')
 
-            self.realStockData[code] = {'timestamp':timestamp, 'close':int(close.lstrip('+').lstrip('-')), '전일대비':int(compared), '등락률':float(fluctuation),
+            self.realStockData[code] = {'timestamp':timestamp, 'close':int(close), '전일대비':int(compared), '등락률':float(fluctuation),
                          'ask':abs(int(ask)), 'bid':abs(int(bid)), '거래량':int(quantity), 'volume':abs(int(volume)),
-                         'high':int(high), 'open':int(open), 'low':int(low.lstrip('+').lstrip('-'))}
+                         'high':int(high), 'open':int(open), 'low':int(low)}
 
-        elif type == '주식호가잔량':
-            timestamp = self._GetCommRealData(code, self.realType.REALTYPE[type]['호가시간'])
-            askPrice1 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가1'])
-            askPrice2 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가2'])
-            askPrice3 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가3'])
-            askPrice4 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가4'])
-            askPrice5 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가5'])
-            askPrice6 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가6'])
-            askPrice7 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가7'])
-            askPrice8 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가8'])
-            askPrice9 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가9'])
-            askPrice10 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가10'])
-            askQty1 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량1'])
-            askQty2 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량2'])
-            askQty3 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량3'])
-            askQty4 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량4'])
-            askQty5 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량5'])
-            askQty6 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량6'])
-            askQty7 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량7'])
-            askQty8 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량8'])
-            askQty9 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량9'])
-            askQty10 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가수량10'])
-            bidPrice1 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가1'])
-            bidPrice2 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가2'])
-            bidPrice3 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가3'])
-            bidPrice4 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가4'])
-            bidPrice5 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가5'])
-            bidPrice6 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가6'])
-            bidPrice7 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가7'])
-            bidPrice8 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가8'])
-            bidPrice9 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가9'])
-            bidPrice10 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가10'])
-            bidQty1 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량1'])
-            bidQty2 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량2'])
-            bidQty3 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량3'])
-            bidQty4 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량4'])
-            bidQty5 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량5'])
-            bidQty6 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량6'])
-            bidQty7 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량7'])
-            bidQty8 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량8'])
-            bidQty9 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량9'])
-            bidQty10 = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가수량10'])
-            askTotalQty = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도호가총잔량'])
-            bidTotalQty = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수호가총잔량'])
-            bidReg = self._GetCommRealData(code, self.realType.REALTYPE[type]['순매수잔량'])
-            askReg = self._GetCommRealData(code, self.realType.REALTYPE[type]['순매도잔량'])
-            bidRatio = self._GetCommRealData(code, self.realType.REALTYPE[type]['매수비율'])
-            askRatio = self._GetCommRealData(code, self.realType.REALTYPE[type]['매도비율'])
+        elif sType == '주식호가잔량':
+            timestamp = self._GetCommRealData(code, self.realType.REALTYPE[sType]['호가시간'])
+            askPrice1 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가1']).lstrip('+').lstrip('-')
+            askPrice2 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가2']).lstrip('+').lstrip('-')
+            askPrice3 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가3']).lstrip('+').lstrip('-')
+            askPrice4 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가4']).lstrip('+').lstrip('-')
+            askPrice5 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가5']).lstrip('+').lstrip('-')
+            askPrice6 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가6']).lstrip('+').lstrip('-')
+            askPrice7 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가7']).lstrip('+').lstrip('-')
+            askPrice8 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가8']).lstrip('+').lstrip('-')
+            askPrice9 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가9']).lstrip('+').lstrip('-')
+            askPrice10 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가10']).lstrip('+').lstrip('-')
+            askQty1 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량1'])
+            askQty2 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량2'])
+            askQty3 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량3'])
+            askQty4 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량4'])
+            askQty5 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량5'])
+            askQty6 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량6'])
+            askQty7 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량7'])
+            askQty8 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량8'])
+            askQty9 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량9'])
+            askQty10 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가수량10'])
+            bidPrice1 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가1']).lstrip('+').lstrip('-')
+            bidPrice2 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가2']).lstrip('+').lstrip('-')
+            bidPrice3 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가3']).lstrip('+').lstrip('-')
+            bidPrice4 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가4']).lstrip('+').lstrip('-')
+            bidPrice5 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가5']).lstrip('+').lstrip('-')
+            bidPrice6 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가6']).lstrip('+').lstrip('-')
+            bidPrice7 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가7']).lstrip('+').lstrip('-')
+            bidPrice8 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가8']).lstrip('+').lstrip('-')
+            bidPrice9 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가9']).lstrip('+').lstrip('-')
+            bidPrice10 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가10']).lstrip('+').lstrip('-')
+            bidQty1 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량1'])
+            bidQty2 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량2'])
+            bidQty3 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량3'])
+            bidQty4 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량4'])
+            bidQty5 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량5'])
+            bidQty6 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량6'])
+            bidQty7 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량7'])
+            bidQty8 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량8'])
+            bidQty9 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량9'])
+            bidQty10 = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가수량10'])
+            askTotalQty = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도호가총잔량'])
+            bidTotalQty = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수호가총잔량'])
+            bidReg = self._GetCommRealData(code, self.realType.REALTYPE[sType]['순매수잔량'])
+            askReg = self._GetCommRealData(code, self.realType.REALTYPE[sType]['순매도잔량'])
+            bidRatio = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매수비율'])
+            askRatio = self._GetCommRealData(code, self.realType.REALTYPE[sType]['매도비율'])
 
             asks = [[int(askPrice1), int(askQty1)], [int(askPrice2), int(askQty2)], [int(askPrice3), int(askQty3)], [int(askPrice4), int(askQty4)], [int(askPrice5), int(askQty5)],
                    [int(askPrice6), int(askQty6)], [int(askPrice7), int(askQty7)], [int(askPrice8), int(askQty8)], [int(askPrice9), int(askQty9)], [int(askPrice10), int(askQty10)]]
@@ -335,7 +335,6 @@ class Kiwoom(QAxWidget):
                     '주문상태':orderStatus, '주문수량':int(quantity), 'price':int(price),
                     '주문가격':int(order_price), '주문구분':trade.lstrip('+').lstrip('-'), '미체결수량':int(not_quantity),
                     '체결량':int(ok_quantity)}
-            print(gubun, data)
             self.notSigned[orderNo] = data.copy()
 
         elif int(gubun) == 1:
@@ -352,7 +351,6 @@ class Kiwoom(QAxWidget):
             self.signed[code] = data.copy()
             if int(stock_quantity) == 0:
                 del self.signed[code]
-            print(gubun, data)
 
     # login
     def login(self):
@@ -467,9 +465,10 @@ class Kiwoom(QAxWidget):
     def realdata(self, code):
         # 손가락 하나 까딱하지 않는 주식 거래 시스템 구축 p222
         # RealType에 포함된 유일한 FID 번호 하나만 입력해도 관련된 RealType의 모든 데이터를 슬롯에 보내준다.
-        # '20' 체결시간 - 주식체결, '21 호가시간 - 주식호가잔량
+        # '20' 체결시간 - 주식체결, '41 매도호가1https://download.kiwoom.com/hero4_help_new/0196.htm - 주식호가잔량
+        # https://wikidocs.net/92604
         self.dynamicCall('SetRealReg(QString, QString, QString, QString)',
-                         self.screen_start_stop_real, code, '20;21', '0')
+                         self.screen_start_stop_real, code, '20;41', '0')
 
     # order
     def sendOrder(self, account_num, code, quantity, price, trade, orderType='지정가', orderNo=''):

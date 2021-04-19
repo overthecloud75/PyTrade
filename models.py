@@ -180,6 +180,11 @@ def update_signal(code, date=None, type=None, trade=None, close=None):
             update = {'code':code, 'codeName':codeName, 'date':date, 'type':type, 'trade':trade, 'close':close}
             collection.update_one({'code':code, 'date':date}, {'$set':update}, upsert=True)
 
+def update_orderBook(request_data):
+    collection = db['orderbook']
+    request_data = request_data.copy()
+    collection.insert_one(request_data)
+
 def get_chartSignal(code, type='granville', so='1year'):
     date, initialDate = getDate(so=so)
 

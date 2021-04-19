@@ -202,7 +202,7 @@ class Strategy():
                 '''not_signed_stock = self.get_not_signed_stock(self.account_num)
                 self.isFirstIn = False
                 self.isFirstOut = True'''
-                #self.gathering_daily_chart()
+                self.gathering_daily_chart()
                 self.checkTatics()
                 self.logger.info('sys.exit')
                 sys.exit()
@@ -224,7 +224,8 @@ class Strategy():
                     code = myStock[0]['code']
                     ordMsg = self.kiwoom.sendOrder(self.account_num, code, 1, 80000, trade)
                     self.logger.info(trade + str(ordMsg))
-            #print('realStock', self.kiwoom.realStockData, self.kiwoom.orderbook)
+            if self.kiwoom.orderBook:
+               models.update_orderBook(self.kiwoom.orderBook)
             t = threading.Timer(15, self.saveAndCheck)
         t.start()
 
