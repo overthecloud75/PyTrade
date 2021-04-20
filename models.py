@@ -36,7 +36,7 @@ def post_login(request_data):
     return error, user_data
 
 # account
-def get_accountList():
+def getAccountList():
     collection = db['account']
     data = collection.find_one({'accountList':{'$exists':'true'}})
     if data:
@@ -44,12 +44,12 @@ def get_accountList():
     else:
         return data
 
-def update_accountList(accountList):
+def updateAccountList(accountList):
     collection = db['account']
     update = {'accountList':accountList}
     collection.update_one({'accountList': {'$exists':'true'}}, {'$set':update}, upsert=True)
 
-def get_accountInfo(account, page=1, is_paging=False):
+def getAccountInfo(account, page=1, is_paging=False):
     collection = db['account']
     if is_paging:
         per_page = page_default['per_page']
@@ -63,13 +63,13 @@ def get_accountInfo(account, page=1, is_paging=False):
         accountInfo = collection.find_one({'date':date, 'account':account})
         return accountInfo
 
-def update_accountInfo(update):
+def updateAccountInfo(update):
     collection = db['account']
     date, _ = getDate()
     update['date'] = date
     collection.update_one({'date':date, 'account':update['account']}, {'$set':update}, upsert=True)
 
-def update_profit(account, profit):
+def updateProfit(account, profit):
     collection = db['profit']
     date, _ = getDate()
     update = profit
@@ -95,7 +95,7 @@ def update_code(update):
         pass
 
 # mystock
-def get_myStock(account, page=1, is_paging=False):
+def getMyStock(account, page=1, is_paging=False):
     collection = db['stock']
     if is_paging:
         per_page = page_default['per_page']
@@ -108,7 +108,7 @@ def get_myStock(account, page=1, is_paging=False):
         data_list = collection.find({'account': account})
         return data_list
 
-def update_myStock(account, myStock):
+def updateMyStock(account, myStock):
     collection = db['stock']
     date, _ = getDate()
     for data in myStock:
@@ -116,7 +116,7 @@ def update_myStock(account, myStock):
         data['account'] = account
         collection.update_one({'date':date, 'account':account, 'code':data['code']}, {'$set':data}, upsert=True)
 
-def get_chart(code, isJson=False, so='1year'):
+def getChart(code, isJson=False, so='1year'):
     collection = db['chart']
     date, initialDate = getDate(so=so)
     chart = []
@@ -140,7 +140,7 @@ def get_chart(code, isJson=False, so='1year'):
                 isNext = False
         return isNext, lastDate, chart
 
-def update_chart(chart, so='5year'):
+def updateChart(chart, so='5year'):
     collection = db['chart']
     date, initialDate = getDate(so=so)
     initialDate = int(initialDate)
@@ -151,7 +151,7 @@ def update_chart(chart, so='5year'):
             collection.update_one({'code':data['code'], 'date':data['date']}, {'$set':data}, upsert=True)
 
 # signal
-def get_signal(page=1, codeName=None, so='1year', is_paging=False):
+def getSignal(page=1, codeName=None, so='1year', is_paging=False):
     date, initialDate = getDate(so=so)
     collection = db['signal']
     if is_paging:
@@ -169,7 +169,7 @@ def get_signal(page=1, codeName=None, so='1year', is_paging=False):
         data_list = collection.find({'date':date})
         return data_list
 
-def update_signal(code, date=None, type=None, trade=None, close=None):
+def updateSignal(code, date=None, type=None, trade=None, close=None):
     if date is None or type is None or trade is None or close is None:
         pass
     else:
@@ -178,9 +178,9 @@ def update_signal(code, date=None, type=None, trade=None, close=None):
             collection = db['signal']
             codeName = data['codeName']
             update = {'code':code, 'codeName':codeName, 'date':date, 'type':type, 'trade':trade, 'close':close}
-            collection.update_one({'code':code, 'date':date}, {'$set':update}, upsert=True)
+            collection.update_one({'code':code, 'date':date, 'type':type}, {'$set':update}, upsert=True)
 
-def get_chartSignal(code, type='granville', so='1year'):
+def getChartSignal(code, type='granville', so='1year'):
     date, initialDate = getDate(so=so)
 
     collection = db['signal']
@@ -197,7 +197,7 @@ def get_chartSignal(code, type='granville', so='1year'):
     sellSignals = []
     for idx, data in enumerate(chartData):
         del data['_id']
-        chart.append({'x':idx, 'date':data['date'], 'close':data['close'], 'ma120':data['ma120'], 'ma20':data['ma20']})
+        chart.append({'x':idx, 'date':data['date'], 'close':data['close'], 'ma120':data['ma120'], 'ma20':data['ma20'], 'std20':data['std20']})
         if data['date'] in signalDict:
             if signalDict[data['date']]['trade'] == 'buy':
                 buySignals.append({'x':idx, 'close':data['close']})
@@ -206,18 +206,18 @@ def get_chartSignal(code, type='granville', so='1year'):
     return chart, buySignals, sellSignals
 
 # 실시간
-def update_tick(request_data):
+def updateTick(request_data):
     collection = db['trade']
-    request_data = request_data.copy()
+    request_data = request_data
     collection.insert_one(request_data)
 
-def update_orderBook(request_data):
+def updateOrderBook(request_data):
     collection = db['orderbook']
-    request_data = request_data.copy()
+    request_data = request_data
     collection.insert_one(request_data)
 
 # revised
-def revised_price(code=None, date=None, ratio=1):
+def revisedPrice(code=None, date=None, ratio=1):
     collection = db['chart']
     afterData = collection.find({'code':code, 'date':{'$gte':date}}, sort=[('date', -1)])
     beforeData = collection.find({'code':code, 'date':{'$lt':date}}, sort=[('date', -1)])

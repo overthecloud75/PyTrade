@@ -1,6 +1,8 @@
 import threading
 import logging
 import sys
+import math
+import time
 
 from kiwoom.kiwoom import *
 import models
@@ -23,8 +25,8 @@ class Strategy():
         self.kiwoom.login()             # 로그인 요청 함수
 
         # account 정보 수집
-        account_list = self.get_accountList()
-        self.account_num = account_list[0]
+        accountList = self.getAccountList()
+        self.accountNum = accountList[0]
 
         #QTest.qWait(10000)
         #self.kiwoom.screen_number_setting()
@@ -34,92 +36,102 @@ class Strategy():
         # '' 자리는 종목 코드가 들어가야 하나 빈 값으로 작성하면 종목이 아니라 주식 장의 시간 상태를 실시간으로 체크
 
     # account
-    def get_accountList(self):
-        accountList = models.get_accountList()
+    def getAccountList(self):
+        accountList = models.getAccountList()
         if accountList is None:
-            accountList = self.kiwoom.get_accountList()  # user No 확인
-            models.update_accountList(accountList)
+            accountList = self.kiwoom.getAccountList()  # user No 확인
+            models.updateAccountList(accountList)
         self.logger.info('accountList: %s' % str(accountList))
         return accountList
 
-    def get_accountInfo(self, account_num):
+    def getAccountInfo(self, accountNum):
         isStockFinished = checkStockFinished()
         accountInfo = None
         if isStockFinished:
-            accountInfo = models.get_accountInfo(account_num)
+            accountInfo = models.getAccountInfo(accountNum)
         if accountInfo is None:
-            accountInfo = self.kiwoom.get_accountInfo(account_num)  # 예수금 상세현황 요청
-            models.update_accountInfo(accountInfo)
-        self.logger.info('account_lnfo: %s' %str(accountInfo))
+            accountInfo = self.kiwoom.getAccountInfo(accountNum)  # 예수금 상세현황 요청
+            models.updateAccountInfo(accountInfo)
+        self.logger.info('accountInfo: %s' %str(accountInfo))
         return accountInfo
 
-    def get_myStock(self, account_num):
-        profit, myStock = self.kiwoom.get_myStock(account_num)  # 계좌평가잔고내역 요청
-        models.update_profit(account_num, profit)
+    def getMyStock(self, accountNum):
+        profit, myStock = self.kiwoom.getMyStock(accountNum)  # 계좌평가잔고내역 요청
+        models.updateProfit(accountNum, profit)
         self.logger.info('profit : %s' %str(profit))
-        models.update_myStock(account_num, myStock)
+        models.updateMyStock(accountNum, myStock)
         self.logger.info('myStock : %s' %str(myStock))
         return profit, myStock
 
-    def get_notSigned(self, account_num):
-        notSigned = self.kiwoom.getNotSigned(account_num)
+    def getNotSigned(self, accountNum):
+        notSigned = self.kiwoom.getNotSigned(accountNum)
         self.logger.info('notSigned: %s' %str(notSigned))
         return notSigned
 
     # chart
-    def gathering_daily_chart(self):
+    def gatheringDailyChart(self):
         self.logger.info('gathering daily chart')
 
         for market in self.market:
-            codeList = self.kiwoom.get_codeList(market=self.market[market])
+            codeList = self.kiwoom.getCodeList(market=self.market[market])
 
             for idx, code in enumerate(codeList):
                 isStockFinished = checkStockFinished()
                 if not isStockFinished:
                     break
                 self.logger.info('%s/%s: %s stock code: %s is updating' %(idx, len(codeList), market, code))
-                isNext, lastDate, chart = models.get_chart(code)
+                isNext, lastDate, chart = models.getChart(code)
                 if isNext:
-                    recentChart = self.kiwoom.get_chart(type='daily', code=code, lastDate=lastDate)
+                    recentChart = self.kiwoom.getChart(type='daily', code=code, lastDate=lastDate)
                     chart = recentChart + chart
-                    chart = self.addMovingAverage(chart)
-                    models.update_chart(chart)
+                    chart = self.addMoving(chart)
+                    models.updateChart(chart)
 
-    def addMovingAverage(self, chart):
-        copy_chart = chart.copy()
-        len_chart = len(chart)
-        chart_size = 0
-        for idx in range(len_chart):
+    def addMoving(self, chart):
+        copyChart = chart.copy()
+        lenChart = len(chart)
+        chartSize = 0
+        for idx in range(lenChart):
             if 'ma120' in chart[idx]:
-                chart_size = idx
+                chartSize = idx
                 break
-            total_price = 0
+            totalPrice = 0
             for value in chart[idx:idx + 120]:
-                total_price = total_price + value['close']
-            copy_chart[idx]['ma120'] = int(total_price / len(chart[idx:idx + 120]))
+                totalPrice = totalPrice + value['close']
+            copyChart[idx]['ma120'] = int(totalPrice / len(chart[idx:idx + 120]))
 
-            total_price = 0
+            vsum = 0
+            for value in chart[idx:idx + 120]:
+                vsum = vsum + (value['close'] - copyChart[idx]['ma120']) ** 2
+            copyChart[idx]['std120'] = round(math.sqrt(vsum / len(chart[idx:idx + 120])), 2)
+
+            totalPrice = 0
             for value in chart[idx:idx + 20]:
-                total_price = total_price + value['close']
-            copy_chart[idx]['ma20'] = int(total_price / len(chart[idx:idx + 20]))
-        copy_chart = copy_chart[:chart_size]
-        return copy_chart
+                totalPrice = totalPrice + value['close']
+            copyChart[idx]['ma20'] = int(totalPrice / len(chart[idx:idx + 20]))
+
+            vsum = 0
+            for value in chart[idx:idx + 20]:
+                vsum = vsum + (value['close'] - copyChart[idx]['ma20']) ** 2
+            copyChart[idx]['std20'] = round(math.sqrt(vsum / len(chart[idx:idx + 20])), 2)
+        copyChart = copyChart[:chartSize]
+        return copyChart
 
     # tatics
     def checkTatics(self):
         self.logger.info('check tatics')
         for market in self.market:
-            codeList = self.kiwoom.get_codeList(market=self.market[market])
+            codeList = self.kiwoom.getCodeList(market=self.market[market])
             for code in codeList:
-                self.periodCheck(period=5, code=code)
+                self.periodCheck(period=500000, code=code, so='5year')
 
     def periodCheck(self, period=None, code=None, so='1year'):
-        _, _, chart = models.get_chart(code, so=so)
+        _, _, chart = models.getChart(code, so=so)
         if period is None:
             self.tatics(chart)
         else:
-            len_chart = len(chart)
-            for idx in range(len_chart):
+            lenChart = len(chart)
+            for idx in range(lenChart):
                 if idx >= period:
                     break
                 partChart = chart[idx:]
@@ -130,67 +142,75 @@ class Strategy():
         if not chart or 'ma120' not in chart[0]:
             pass
         else:
-            ma120_price = chart[0]['ma120']
-            ma20_price = chart[0]['ma20']
-            len_chart = len(chart) - 1
+            ma120Price = chart[0]['ma120']
+            ma20Price = chart[0]['ma20']
+            std20 = chart[0]['std20']
+            lenChart = len(chart) - 1
 
             type = 'granville'
-            high_price = chart[0]['high']
+            highPrice = chart[0]['high']
+            closePrice = chart[0]['close']
 
             # 오늘자 주가가 120일 이평선에 걸쳐 있는지 확인
-            if chart[0]['low'] <= ma120_price and ma120_price <= high_price:
-                for i in range(len_chart):
+            if chart[0]['low'] <= ma120Price and ma120Price <= highPrice:
+                for i in range(lenChart):
                     idx = i + 1
-                    prev_ma120_price = chart[idx]['ma120']
-                    # target_period 동안 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
-                    if prev_ma120_price <= chart[idx]['high'] and idx <= targetPeriod:
+                    prevMa120Price = chart[idx]['ma120']
+                    # target period 동안 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
+                    if prevMa120Price <= chart[idx]['high'] and idx <= targetPeriod:
                         break
-                    # target_period 전에 이평선 위에 있는 구간 존재
-                    elif prev_ma120_price < chart[idx]['low'] and idx > targetPeriod:
+                    # target period 전에 이평선 위에 있는 구간 존재
+                    elif prevMa120Price < chart[idx]['low'] and idx > targetPeriod:
                         self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
-                        prev_low_price = chart[idx]['low']
+                        prevLowPrice = chart[idx]['low']
                         # ma120및 price값이 prev 보다 상승
-                        if ma120_price > prev_ma120_price and high_price > prev_low_price:
+                        if ma120Price > prevMa120Price and highPrice > prevLowPrice:
                             self.logger.info('조건 통과')
-                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=chart[0]['close'])
+                            models.updateSignal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=closePrice)
                         break
 
             type = 'ma'
-            if ma120_price < ma20_price:
-                for i in range(len_chart):
+            if ma120Price < ma20Price:
+                for i in range(lenChart):
                     idx = i + 1
-                    prev_ma120_price = chart[idx]['ma120']
-                    prev_ma20_price = chart[idx]['ma20']
-                    # target_period 동안 20일 이동 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
-                    if prev_ma120_price < prev_ma20_price and idx <= targetPeriod:
+                    prevMa120Price = chart[idx]['ma120']
+                    prevMa20Price = chart[idx]['ma20']
+                    # target period 동안 20일 이동 주가가 이동평균선보다 같거나 위에 있으면 조건 통과 못 함
+                    if prevMa120Price < prevMa20Price and idx <= targetPeriod:
                         break
-                        # target_period 전에 이평선 위에 있는 구간 존재
-                    elif prev_ma120_price < prev_ma20_price and idx > targetPeriod:
-                        self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
+                        # target period 전에 이평선 위에 있는 구간 존재
+                    elif prevMa120Price < prevMa20Price and idx > targetPeriod:
+                        # self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
                         # ma120및 price값이 prev 보다 상승
-                        if ma120_price > prev_ma120_price:
+                        if ma120Price > prevMa120Price:
                             self.logger.info('조건 통과')
-                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=chart[0]['close'])
+                            models.updateSignal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=closePrice)
                         break
-            elif ma120_price > ma20_price:
-                for i in range(len_chart):
+            elif ma120Price > ma20Price:
+                for i in range(lenChart):
                     idx = i + 1
-                    prev_ma120_price = chart[idx]['ma120']
-                    prev_ma20_price = chart[idx]['ma20']
-                    # target_period 동안 20일 이동 주가가 이동평균선보다 같거나 아래에 있으면 조건 통과 못 함
-                    if prev_ma120_price > prev_ma20_price and idx <= targetPeriod:
+                    prevMa120Price = chart[idx]['ma120']
+                    prevMa20Price = chart[idx]['ma20']
+                    # target period 동안 20일 이동 주가가 이동평균선보다 같거나 아래에 있으면 조건 통과 못 함
+                    if prevMa120Price > prevMa20Price and idx <= targetPeriod:
                         break
-                        # target_period 전에 이평선 아래에 있는 구간 존재
-                    elif prev_ma120_price > prev_ma20_price and idx > targetPeriod:
-                        self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
+                        # target period 전에 이평선 아래에 있는 구간 존재
+                    elif prevMa120Price > prevMa20Price and idx > targetPeriod:
+                        # self.logger.info('120일치 이평선 위에 있는 구간 확인됨')
                         # ma120및 price값이 prev 보다 하락
-                        if ma120_price < prev_ma120_price:
+                        if ma120Price < prevMa120Price:
                             self.logger.info('조건 통과')
-                            models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='sell', close=chart[0]['close'])
+                            models.updateSignal(chart[0]['code'], date=chart[0]['date'], type=type, trade='sell', close=closePrice)
                         break
 
+            type = 'bollinger'
+            if closePrice < ma20Price - 2 * std20:
+                models.updateSignal(chart[0]['code'], date=chart[0]['date'], type=type, trade='buy', close=closePrice)
+            elif closePrice > ma20Price + 2 * std20:
+                models.updateSignal(chart[0]['code'], date=chart[0]['date'], type=type, trade='sell', close=closePrice)
+
     def revised(self, code=None, date=None, ratio=1):
-        models.revised_price(code=code, date=date, ratio=ratio)
+        models.revisedPrice(code=code, date=date, ratio=ratio)
         self.periodCheck(period=20000, code=code, so='5year')
 
     # trigger
@@ -199,14 +219,14 @@ class Strategy():
 
         if isStockFinished:
             if self.isFirstIn:
-                signed = self.kiwoom.get_signed(self.account_num)
+                signed = self.kiwoom.getSigned(self.accountNum)
                 #print(signed)
-                self.get_accountInfo(self.account_num)
-                self.get_myStock(self.account_num)
-                '''not_signed_stock = self.get_not_signed_stock(self.account_num)
+                self.getAccountInfo(self.accountNum)
+                self.getMyStock(self.accountNum)
+                '''notSigned = self.getNotSigned(self.accountNum)
                 self.isFirstIn = False
                 self.isFirstOut = True'''
-                self.gathering_daily_chart()
+                #self.gatheringDailyChart()
                 self.checkTatics()
                 self.logger.info('sys.exit')
                 sys.exit()
@@ -214,9 +234,9 @@ class Strategy():
                 print(self.kiwoom.lastErrCode)
             t = threading.Timer(120, self.saveAndCheck)
         else:
-            self.get_accountInfo(self.account_num)
-            profit, myStock = self.get_myStock(self.account_num)
-            # not_signed_stock = self.get_not_signed_stock(self.account_num)
+            self.getAccountInfo(self.accountNum)
+            profit, myStock = self.getMyStock(self.accountNum)
+            # notSigned = self.getNotSigned(self.accountNum)
             if self.isFirstOut:
                 self.logger.info('실시간 data 수신')
                 self.kiwoom.realdata('001510')
@@ -226,46 +246,49 @@ class Strategy():
                 trade = '신규매도'
                 if myStock:
                     code = myStock[0]['code']
-                    ordMsg = self.kiwoom.sendOrder(self.account_num, code, 1, 80000, trade)
+                    ordMsg = self.kiwoom.sendOrder(self.accountNum, code, 1, 80000, trade)
                     self.logger.info(trade + str(ordMsg))
-            if self.kiwoom.realStockData:
-                models.update_tick(self.kiwoom.realStockData)
-            if self.kiwoom.orderBook:
-                models.update_orderBook(self.kiwoom.orderBook)
+            timestamp = int(time.time())
+            tradeData = {'timestamp':timestamp, 'data':self.kiwoom.tradeData.copy()}
+            orderbook = {'timestamp':timestamp, 'data':self.kiwoom.orderBook.copy()}
+            self.kiwoom.tradeData['BuyQty'] = 0
+            self.kiwoom.tradeData['SellQty'] = 0
+            models.updateTick(tradeData)
+            models.updateOrderBook(orderbook)
             t = threading.Timer(15, self.saveAndCheck)
         t.start()
 
-    '''def checkTriggerAndOrder(self, account_num, code):
+    '''def checkTriggerAndOrder(self, accountNum, code):
         if self.count % 1000 == 0:
             trade = '신규매수'
-            self.kiwoom.order(account_num, code, 1, 85000, trade)
-            if self.not_signed_stock:
-                for orderNo in self.not_signed_stock:
-                    code = self.not_signed_stock[orderNo]['종목코드']
-                    quantity = self.not_signed_stock[orderNo]['미체결수량']
-                    trade = self.not_signed_stock[orderNo]['주문구분']
+            self.kiwoom.order(accountNum, code, 1, 85000, trade)
+            if self.notSigned:
+                for ordNo in self.notSigned:
+                    code = self.notSigned[ordNo]['종목코드']
+                    quantity = self.notSigned[ordNo]['미체결수량']
+                    trade = self.notSigned[ordNo]['주문구분']
                     if trade == '매수':
                         trade = '매수취소'
-                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                        self.kiwoom.order(accountNum, code, 0, 0, trade, ordNo=ordNo)
                     elif trade == '매도':
                         trade = '매도취소'
-                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                        self.kiwoom.order(accountNum, code, 0, 0, trade, ordNo=ordNo)
         elif self.count % 1000 == 500:
-            print('stock_value', self.myStock)
-            print('not_signed_stock', self.not_signed_stock)
+            print('stockvalue', self.myStock)
+            print('notSigned', self.notSigned)
             trade = '신규매도'
-            self.kiwoom.order(account_num, code, 1, 80000, trade)
-            if self.not_signed_stock:
-                for orderNo in self.not_signed_stock:
-                    code = self.not_signed_stock[orderNo]['종목코드']
-                    quantity = self.not_signed_stock[orderNo]['미체결수량']
-                    trade = self.not_signed_stock[orderNo]['주문구분']
+            self.kiwoom.order(accountNum, code, 1, 80000, trade)
+            if self.notSigned:
+                for ordNo in self.notSigned:
+                    code = self.notSigned[ordNo]['종목코드']
+                    quantity = self.notSigned[ordNo]['미체결수량']
+                    trade = self.notSigned[ordNo]['주문구분']
                     if trade == '매수':
                         trade = '매수취소'
-                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                        self.kiwoom.order(accountNum, code, 0, 0, trade, ordNo=ordNo)
                     elif trade == '매도':
                         trade = '매도취소'
-                        self.kiwoom.order(account_num, code, 0, 0, trade, orderNo=orderNo)
+                        self.kiwoom.order(accountNum, code, 0, 0, trade, ordNo=ordNo)
         self.count = self.count + 1'''
 
 

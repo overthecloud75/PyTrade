@@ -4,7 +4,7 @@ from werkzeug.utils import redirect
 import functools
 
 from form import UserCreateForm, UserLoginForm
-from models import post_signUp, post_login, get_code, get_accountList, get_accountInfo, get_myStock, get_chart, get_signal, get_chartSignal
+from models import post_signUp, post_login, get_code, getAccountList, getAccountInfo, getMyStock, getChart, getSignal, getChartSignal
 from utils import request_get
 
 # blueprint
@@ -61,24 +61,24 @@ def logout():
 @login_required
 def account():
     page, keyword, so = request_get(request.args)
-    accountList = get_accountList()
+    accountList = getAccountList()
     if accountList:
         account_num = accountList[0]
     else:
         account_num = None
-    paging, data_list = get_accountInfo(account_num, page=page, is_paging=True)
+    paging, data_list = getAccountInfo(account_num, page=page, is_paging=True)
     return render_template('stock/account.html', **locals())
 
 @bp.route('/mystock/')
 @login_required
 def mystock():
     page, keyword, so = request_get(request.args)
-    accountList = get_accountList()
+    accountList = getAccountList()
     if accountList:
         account_num = accountList[0]
     else:
         account_num = None
-    paging, data_list = get_myStock(account_num, page=page, is_paging=True)
+    paging, data_list = getMyStock(account_num, page=page, is_paging=True)
     return render_template('stock/mystock.html', **locals())
 
 @bp.route('/signal/')
@@ -86,9 +86,9 @@ def mystock():
 def signal():
     page, keyword, so = request_get(request.args)
     if keyword:
-        paging, data_list = get_signal(page=page, codeName=keyword, so=so, is_paging=True)
+        paging, data_list = getSignal(page=page, codeName=keyword, so=so, is_paging=True)
     else:
-        paging, data_list = get_signal(page=page, so=so, is_paging=True)
+        paging, data_list = getSignal(page=page, so=so, is_paging=True)
     return render_template('chart/signal.html', **locals())
 
 @bp.route('/chart/')
@@ -97,7 +97,7 @@ def chart():
     data = get_code(codeName=keyword)
     if data:
         codeName = keyword + ' (' + data['code'] + ')'
-        data_list = get_chart(data['code'], isJson=True, so=so)
+        data_list = getChart(data['code'], isJson=True, so=so)
         if data_list:
             period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
         else:
@@ -105,7 +105,7 @@ def chart():
     else:
         keyword = '삼성전자'
         codeName = keyword + ' (005930)'
-        data_list = get_chart('005930', isJson=True, so=so)
+        data_list = getChart('005930', isJson=True, so=so)
         period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
     return render_template('chart/chart.html', **locals())
 
@@ -116,7 +116,7 @@ def chartSignal():
     data_list = []
     if data:
         codeName = keyword + ' (' + data['code'] + ')'
-        data_list, buySignals, sellSignals = get_chartSignal(data['code'], type='ma', so=so)
+        data_list, buySignals, sellSignals = getChartSignal(data['code'], type='bollinger', so=so)
         if data_list:
             period = data_list[0]['date'] + ' ~ ' + data_list[-1]['date']
         else:
