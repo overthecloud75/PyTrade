@@ -180,11 +180,6 @@ def update_signal(code, date=None, type=None, trade=None, close=None):
             update = {'code':code, 'codeName':codeName, 'date':date, 'type':type, 'trade':trade, 'close':close}
             collection.update_one({'code':code, 'date':date}, {'$set':update}, upsert=True)
 
-def update_orderBook(request_data):
-    collection = db['orderbook']
-    request_data = request_data.copy()
-    collection.insert_one(request_data)
-
 def get_chartSignal(code, type='granville', so='1year'):
     date, initialDate = getDate(so=so)
 
@@ -209,6 +204,65 @@ def get_chartSignal(code, type='granville', so='1year'):
             elif signalDict[data['date']]['trade'] == 'sell':
                 sellSignals.append({'x':idx, 'close':data['close']})
     return chart, buySignals, sellSignals
+
+# 실시간
+def update_tick(request_data):
+    collection = db['trade']
+    request_data = request_data.copy()
+    collection.insert_one(request_data)
+
+def update_orderBook(request_data):
+    collection = db['orderbook']
+    request_data = request_data.copy()
+    collection.insert_one(request_data)
+
+# revised
+def revised_price(code=None, date=None, ratio=1):
+    collection = db['chart']
+    afterData = collection.find({'code':code, 'date':{'$gte':date}}, sort=[('date', -1)])
+    beforeData = collection.find({'code':code, 'date':{'$lt':date}}, sort=[('date', -1)])
+    revised_chart = []
+
+    isRevised = True
+    for data in afterData:
+        del data['_id']
+        revised_chart.append(data)
+    i = 0
+    for data in beforeData:
+        copyData = data.copy()
+        if i == 0:
+            if revised_chart[-1]['close'] < data['close'] * 1.3 and revised_chart[-1]['close'] > data['close'] * 0.7:
+                isRevised = False
+                break
+        del copyData['_id']
+        copyData['high'] = int(copyData['high'] / ratio)
+        copyData['open'] = int(copyData['open'] / ratio)
+        copyData['low'] = int(copyData['low'] / ratio)
+        copyData['close'] = int(copyData['close'] / ratio)
+        copyData['volume'] = int(copyData['volume'] * ratio)
+        revised_chart.append(copyData)
+        i = i + 1
+
+    if isRevised:
+        len_chart = len(revised_chart)
+        chart = revised_chart.copy()
+        for idx in range(len_chart):
+            total_price = 0
+            for value in chart[idx:idx + 120]:
+                total_price = total_price + value['close']
+            chart[idx]['ma120'] = int(total_price / len(chart[idx:idx + 120]))
+
+            total_price = 0
+            for value in chart[idx:idx + 20]:
+                total_price = total_price + value['close']
+            chart[idx]['ma20'] = int(total_price / len(chart[idx:idx + 20]))
+
+        for data in chart:
+            collection.update_one({'code':data['code'], 'date':data['date']}, {'$set':data}, upsert=True)
+
+        collection = db['signal']
+        collection.delete_many({'code':code})
+
 
 
 

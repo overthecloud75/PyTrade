@@ -308,7 +308,7 @@ class Kiwoom(QAxWidget):
                    [int(askPrice6), int(askQty6)], [int(askPrice7), int(askQty7)], [int(askPrice8), int(askQty8)], [int(askPrice9), int(askQty9)], [int(askPrice10), int(askQty10)]]
             bids = [[int(bidPrice1), int(bidQty1)], [int(bidPrice2), int(bidQty2)], [int(bidPrice3), int(bidQty3)], [int(bidPrice4), int(bidQty4)], [int(bidPrice5), int(bidQty5)],
                    [int(bidPrice6), int(bidQty6)], [int(bidPrice7), int(bidQty7)], [int(bidPrice8), int(bidQty8)], [int(bidPrice9), int(bidQty9)], [int(bidPrice10), int(bidQty10)]]
-            self.orderBook[code] = {'asks':asks, 'bids':bids, 'askTotalQty':int(askTotalQty), 'bidTotalQty':int(bidTotalQty),
+            self.orderBook[code] = {'timestamp':timestamp, 'asks':asks, 'bids':bids, 'askTotalQty':int(askTotalQty), 'bidTotalQty':int(bidTotalQty),
                                     'bidReg':int(bidReg), 'askReg':int(askReg), 'bidRatio':float(bidRatio), 'askRatio':float(askRatio) }
 
     def _chejanSlot(self, gubun, item_cnt, fidList):

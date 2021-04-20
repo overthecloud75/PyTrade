@@ -90,10 +90,10 @@ class Strategy():
         len_chart = len(chart)
         chart_size = 0
         for idx in range(len_chart):
-            total_price = 0
             if 'ma120' in chart[idx]:
                 chart_size = idx
                 break
+            total_price = 0
             for value in chart[idx:idx + 120]:
                 total_price = total_price + value['close']
             copy_chart[idx]['ma120'] = int(total_price / len(chart[idx:idx + 120]))
@@ -113,8 +113,8 @@ class Strategy():
             for code in codeList:
                 self.periodCheck(period=5, code=code)
 
-    def periodCheck(self, period=None, code=None):
-        _, _, chart = models.get_chart(code, so='1year')
+    def periodCheck(self, period=None, code=None, so='1year'):
+        _, _, chart = models.get_chart(code, so=so)
         if period is None:
             self.tatics(chart)
         else:
@@ -189,6 +189,10 @@ class Strategy():
                             models.update_signal(chart[0]['code'], date=chart[0]['date'], type=type, trade='sell', close=chart[0]['close'])
                         break
 
+    def revised(self, code=None, date=None, ratio=1):
+        models.revised_price(code=code, date=date, ratio=ratio)
+        self.periodCheck(period=20000, code=code, so='5year')
+
     # trigger
     def saveAndCheck(self):
         isStockFinished = checkStockFinished()
@@ -215,7 +219,7 @@ class Strategy():
             # not_signed_stock = self.get_not_signed_stock(self.account_num)
             if self.isFirstOut:
                 self.logger.info('실시간 data 수신')
-                self.kiwoom.realdata('005930')
+                self.kiwoom.realdata('001510')
                 self.isFirstOut = False
                 self.isFirstIn = True
             else:
@@ -224,8 +228,10 @@ class Strategy():
                     code = myStock[0]['code']
                     ordMsg = self.kiwoom.sendOrder(self.account_num, code, 1, 80000, trade)
                     self.logger.info(trade + str(ordMsg))
+            if self.kiwoom.realStockData:
+                models.update_tick(self.kiwoom.realStockData)
             if self.kiwoom.orderBook:
-               models.update_orderBook(self.kiwoom.orderBook)
+                models.update_orderBook(self.kiwoom.orderBook)
             t = threading.Timer(15, self.saveAndCheck)
         t.start()
 
