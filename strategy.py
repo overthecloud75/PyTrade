@@ -123,7 +123,7 @@ class Strategy():
         for market in self.market:
             codeList = self.kiwoom.getCodeList(market=self.market[market])
             for code in codeList:
-                self.periodCheck(period=500000, code=code, so='5year')
+                self.periodCheck(period=5, code=code, so='1year')
 
     def periodCheck(self, period=None, code=None, so='1year'):
         _, _, chart = models.getChart(code, so=so)
@@ -226,7 +226,7 @@ class Strategy():
                 '''notSigned = self.getNotSigned(self.accountNum)
                 self.isFirstIn = False
                 self.isFirstOut = True'''
-                #self.gatheringDailyChart()
+                self.gatheringDailyChart()
                 self.checkTatics()
                 self.logger.info('sys.exit')
                 sys.exit()
@@ -239,7 +239,11 @@ class Strategy():
             # notSigned = self.getNotSigned(self.accountNum)
             if self.isFirstOut:
                 self.logger.info('실시간 data 수신')
-                self.kiwoom.realdata('001510')
+                code = '104040'
+                self.kiwoom.tradeData[code] = {}
+                self.kiwoom.tradeData[code]['buyQty'] = 0
+                self.kiwoom.tradeData[code]['sellQty'] = 0
+                self.kiwoom.realdata(code)
                 self.isFirstOut = False
                 self.isFirstIn = True
             else:
@@ -251,10 +255,11 @@ class Strategy():
             timestamp = int(time.time())
             tradeData = {'timestamp':timestamp, 'data':self.kiwoom.tradeData.copy()}
             orderbook = {'timestamp':timestamp, 'data':self.kiwoom.orderBook.copy()}
-            self.kiwoom.tradeData['BuyQty'] = 0
-            self.kiwoom.tradeData['SellQty'] = 0
             models.updateTick(tradeData)
             models.updateOrderBook(orderbook)
+            for code in self.kiwoom.tradeData:
+                self.kiwoom.tradeData[code]['buyQty'] = 0
+                self.kiwoom.tradeData[code]['sellQty'] = 0
             t = threading.Timer(15, self.saveAndCheck)
         t.start()
 

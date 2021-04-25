@@ -252,13 +252,21 @@ class Kiwoom(QAxWidget):
             low = self._GetCommRealData(code, self.realType.REALTYPE[sType]['저가']).lstrip('+').lstrip('-')
 
             qty = int(qty)
-            self.tradeData[code] = {'timestamp':timestamp, 'close':int(close), '전일대비':int(compared), '등락률':float(fluctuation),
-                         'ask':abs(int(ask)), 'bid':abs(int(bid)), '거래량':qty, 'volume':abs(int(volume)),
-                         'high':int(high), 'open':int(open), 'low':int(low)}
             if qty > 0:
                 self.tradeData[code]['buyQty'] = self.tradeData[code]['buyQty'] + qty
             if qty < 0:
                 self.tradeData[code]['sellQty'] = self.tradeData[code]['sellQty'] + qty
+            self.tradeData[code]['timestamp'] = timestamp,
+            self.tradeData[code]['close'] = int(close)
+            self.tradeData[code]['전일대비'] = int(compared)
+            self.tradeData[code]['등락률'] = float(fluctuation)
+            self.tradeData[code]['ask'] = int(ask)
+            self.tradeData[code]['bid'] = abs(int(bid))
+            self.tradeData[code]['qty'] = qty
+            self.tradeData[code]['volume'] = abs(int(volume))
+            self.tradeData[code]['high'] = int(high)
+            self.tradeData[code]['open'] = int(open)
+            self.tradeData[code]['low'] = int(low)
 
         elif sType == '주식호가잔량':
             timestamp = self._GetCommRealData(code, self.realType.REALTYPE[sType]['호가시간'])
