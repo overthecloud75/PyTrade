@@ -57,9 +57,8 @@ var chart = new CanvasJS.Chart("chartContainer", {
 	},
 	{
 		type: "line",
-		lineColor:"black",
-		showInLegend: true,
-		name: "std20",
+		color:"black",
+		showInLegend: false,
 		yValueFormatString: "#,##0",
 		dataPoints: [
 		    {% for data in data_list %}
@@ -69,9 +68,8 @@ var chart = new CanvasJS.Chart("chartContainer", {
 	},
 	{
 		type: "line",
-		lineColor:"black",
-		showInLegend: true,
-		name: "std20",
+		color:"black",
+		showInLegend: false,
 		yValueFormatString: "#,##0",
 		dataPoints: [
 		    {% for data in data_list %}
@@ -82,7 +80,7 @@ var chart = new CanvasJS.Chart("chartContainer", {
 	{
 		type: "line",
 		showInLegend: true,
-		lineColor:"red",
+		color:"red",
 		name: "ma120",
 		yValueFormatString: "#,##0",
 		dataPoints: [
@@ -93,7 +91,7 @@ var chart = new CanvasJS.Chart("chartContainer", {
 	},
 	{
 		type: "line",
-		lineColor:"blue",
+		color:"blue",
 		showInLegend: true,
 		name: "ma20",
 		yValueFormatString: "#,##0",
